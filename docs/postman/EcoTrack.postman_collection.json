@@ -1,0 +1,279 @@
+{
+  "info": {
+    "name": "EcoTrack API",
+    "description": "Collection de tests pour l'API EcoTrack (EX-F-01 : creer une parcelle). Chaque requete a un test integre qui verifie le status code attendu.\n\nUsage : lancer l'appli en local avec `mvn spring-boot:run -Dspring-boot.run.profiles=dev` depuis `api/`, puis executer la collection (Runner ou une par une).\n\nOrdre important : la requete #2 (doublon) doit etre executee juste apres la #1 (nominal) car elle reutilise le meme code PRC-2026-777.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Creer parcelle - nominal (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/parcelles",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "parcelles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"PRC-2026-777\",\n  \"localite\": \"Yamoussoukro\",\n  \"superficie\": 15.75,\n  \"plantsInitiaux\": 3000,\n  \"datePlantation\": \"2026-04-20\"\n}"
+        },
+        "description": "Scenario Gherkin EX-F-01 : creation nominale. Attendu 201 avec statut EN_SUIVI et Location: /api/v1/parcelles/PRC-2026-777."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('Header Location present', () => pm.expect(pm.response.headers.get('Location')).to.include('/api/v1/parcelles/PRC-2026-777'));",
+              "const body = pm.response.json();",
+              "pm.test('statut = EN_SUIVI', () => pm.expect(body.statut).to.eql('EN_SUIVI'));",
+              "pm.test('dernierTaux null', () => pm.expect(body.dernierTaux).to.be.null);",
+              "pm.test('dateDernierReleve null', () => pm.expect(body.dateDernierReleve).to.be.null);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Doublon du meme code (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/parcelles",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "parcelles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"PRC-2026-777\",\n  \"localite\": \"Yamoussoukro\",\n  \"superficie\": 15.75,\n  \"plantsInitiaux\": 3000,\n  \"datePlantation\": \"2026-04-20\"\n}"
+        },
+        "description": "Scenario Gherkin EX-F-01 : code deja utilise. Reutilise le code de la requete #1. Attendu 409 + application/problem+json."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));",
+              "pm.test('Content-Type application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+              "const body = pm.response.json();",
+              "pm.test('detail metier neutre (pas de fuite SQL)', () => {",
+              "  pm.expect(body.detail).to.include('deja');",
+              "  pm.expect(body.detail).to.not.match(/CONSTRAINT|UNIQUE|SQL|parcelle_code_unique/i);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Code invalide - format (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/parcelles",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "parcelles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"PARCELLE-42\",\n  \"localite\": \"Bingerville\",\n  \"superficie\": 12.50,\n  \"plantsInitiaux\": 2000,\n  \"datePlantation\": \"2026-06-15\"\n}"
+        },
+        "description": "Scenario Gherkin EX-F-01 : code invalide. Attendu 400 + champs[{champ:'code'}]."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('champs contient code', () => pm.expect(body.champs.map(c => c.champ)).to.include('code'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Date de plantation dans le futur (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/parcelles",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "parcelles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"PRC-2099-001\",\n  \"localite\": \"Bingerville\",\n  \"superficie\": 12.50,\n  \"plantsInitiaux\": 2000,\n  \"datePlantation\": \"2099-01-01\"\n}"
+        },
+        "description": "Scenario Gherkin EX-F-01 : date future. Attendu 400 + champs[{champ:'datePlantation'}]."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('champs contient datePlantation', () => pm.expect(body.champs.map(c => c.champ)).to.include('datePlantation'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Superficie a 0 - hors bornes (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/parcelles",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "parcelles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"PRC-2026-800\",\n  \"localite\": \"Bingerville\",\n  \"superficie\": 0,\n  \"plantsInitiaux\": 2000,\n  \"datePlantation\": \"2026-06-15\"\n}"
+        },
+        "description": "Scenario Gherkin EX-F-01 : bornes de saisie. Attendu 400 + champs[{champ:'superficie'}]."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('champs contient superficie', () => pm.expect(body.champs.map(c => c.champ)).to.include('superficie'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Superficie avec > 2 decimales (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/parcelles",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "parcelles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"PRC-2026-801\",\n  \"localite\": \"Bingerville\",\n  \"superficie\": 12.501,\n  \"plantsInitiaux\": 2000,\n  \"datePlantation\": \"2026-06-15\"\n}"
+        },
+        "description": "Regle R3 : superficie a au plus 2 decimales. Rejet strict, pas d'arrondi silencieux. Attendu 400."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('champs contient superficie', () => pm.expect(body.champs.map(c => c.champ)).to.include('superficie'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Localite vide (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/parcelles",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "parcelles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"PRC-2026-802\",\n  \"localite\": \"\",\n  \"superficie\": 12.50,\n  \"plantsInitiaux\": 2000,\n  \"datePlantation\": \"2026-06-15\"\n}"
+        },
+        "description": "Scenario Gherkin EX-F-01 : bornes de saisie. Attendu 400 + champs[{champ:'localite'}]."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('champs contient localite', () => pm.expect(body.champs.map(c => c.champ)).to.include('localite'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Plants initiaux a 0 (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/parcelles",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "parcelles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"PRC-2026-803\",\n  \"localite\": \"Bingerville\",\n  \"superficie\": 12.50,\n  \"plantsInitiaux\": 0,\n  \"datePlantation\": \"2026-06-15\"\n}"
+        },
+        "description": "Regle R5 : le nombre de plants initial est strictement positif. Attendu 400 + champs[{champ:'plantsInitiaux'}]."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('champs contient plantsInitiaux', () => pm.expect(body.champs.map(c => c.champ)).to.include('plantsInitiaux'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
