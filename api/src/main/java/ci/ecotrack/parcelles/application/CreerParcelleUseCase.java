@@ -1,9 +1,11 @@
 package ci.ecotrack.parcelles.application;
 
 import ci.ecotrack.parcelles.domaine.Parcelle;
+import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 
+@Service
 public class CreerParcelleUseCase {
 
     private final ParcellesRepository repository;
