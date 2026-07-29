@@ -54,6 +54,16 @@ public class Parcelle {
                 StatutParcelle.EN_SUIVI);
     }
 
+    public static Parcelle reconstituer(ParcelleId id,
+                                        CodeParcelle code,
+                                        Localite localite,
+                                        Superficie superficie,
+                                        NombrePlants plantsInitiaux,
+                                        LocalDate datePlantation,
+                                        StatutParcelle statut) {
+        return new Parcelle(id, code, localite, superficie, plantsInitiaux, datePlantation, statut);
+    }
+
     public ParcelleId id() { return id; }
     public CodeParcelle code() { return code; }
     public Localite localite() { return localite; }
