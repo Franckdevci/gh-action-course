@@ -1,18 +1,20 @@
 # Architecture Decision Records (ADR) — EcoTrack
 
 Ce répertoire consigne les décisions structurantes du projet EcoTrack. Chaque
-décision est numérotée, datée, et référencée depuis le SDD (`docs/sdd.md`).
+décision est numérotée, datée, et tracée aux exigences du SRS (`docs/srs.md`)
+et aux sections du SDD (`docs/sdd.md`) qui la mobilisent.
 
-Format : MADR allégé (Statut · Contexte · Décision · Conséquences · Alternatives).
+Format : MADR allégé (Statut · Date · Exigences concernées · Contexte · Décision · Conséquences · Alternatives).
 
 ## Index
 
-| N° | Titre | Statut | Référencée dans |
+| N° | Titre | Statut | Exigences principales |
 |---|---|---|---|
-| [ADR-001](adr-001-spring-modulith.md) | Backend en Spring Modulith | Acceptée | SDD §2.1 |
-| [ADR-002](adr-002-separation-domaine-jpa.md) | Séparation stricte domaine / JPA | Acceptée | SDD §3.4 |
-| [ADR-003](adr-003-communication-par-event.md) | Communication `releves` → `alertes` par event uniquement | Acceptée | SDD §2.2 |
-| [ADR-004](adr-004-feature-flags-backend.md) | Feature flags : backend seul dépositaire | Acceptée | SDD §5.3 |
+| [ADR-001](ADR-001-spring-modulith.md) | Spring Modulith plutôt que microservices ou monolithe en couches | Accepté | Toutes (structurante), EX-NF-02 |
+| [ADR-002](ADR-002-persistance-et-mapping.md) | H2 en développement, PostgreSQL en staging, domaine séparé de JPA | Accepté | EI-03, EX-NF-01, EX-NF-07, EX-F-01 R2, EX-F-02 R3 |
+| [ADR-003](ADR-003-events-inter-modules.md) | Communication `releves` → `alertes` par event Spring Modulith | Accepté | EX-F-03 R2, EX-F-07, EX-NF-03 |
+| [ADR-004](ADR-004-feature-flags.md) | Feature flags par propriétés Spring, exposés au front par l'API | Accepté | EX-F-04 R1, C2 |
+| [ADR-005](ADR-005-denormalisation-dernier-releve.md) | Dénormalisation du dernier relevé sur la ligne `parcelle` | Accepté | EX-NF-01, EX-F-05, EX-F-04 |
 
 ## Règles
 
