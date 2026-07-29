@@ -20,7 +20,7 @@ server:
     include-message: never
     include-binding-errors: never
     include-stacktrace: never
-    include-exception: never
+    include-exception: false
     whitelabel:
       enabled: false
 
