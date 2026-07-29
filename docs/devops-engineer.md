@@ -101,15 +101,22 @@ sont **normatives pour le jour où il arrivera**, pas applicables immédiatement
 
 ## Politique de protection de branche
 
-Actuellement `main` **n'est pas protégée** (cf. CLAUDE.md). Un check rouge sur
-une PR ne bloque donc pas le merge. Objectif à court terme :
+`main` est **protégée** depuis le 2026-07-29 (cf. CLAUDE.md). Politique
+appliquée :
 
-- Activer la protection dès qu'un `required check` stable existe — aujourd'hui
-  `mvn verify (api)` est éligible.
-- Interdire le push direct sur `main`, exiger PR + check vert + suppression de
-  branche après merge.
-- Ne pas activer la revue obligatoire tant que le projet reste mono-mainteneur
-  (l'auteur ne peut pas s'auto-approuver via l'API — cela bloquerait tout).
+- Push direct sur `main` : **interdit**. Tout changement passe par PR.
+- Required status checks : `mvn verify (api)` **et** `trivy fs scan` doivent
+  être verts pour permettre le merge.
+- Required approving review count : `0` — projet mono-mainteneur, l'auteur ne
+  pouvant pas s'auto-approuver via l'API, exiger une revue bloquerait tout.
+- Required linear history : `true` — cohérent avec la convention squash+delete.
+- `allow_force_pushes` et `allow_deletions` : `false`.
+- `enforce_admins` : `false` — l'admin garde une échappatoire d'urgence
+  (bypass manuel visible dans l'onglet Insights → Audit log).
+
+Toute évolution de cette politique (ajout d'un check requis, activation de
+`enforce_admins`, exigence de revue) fait l'objet d'une PR sur les settings
+via `gh api -X PUT /repos/{owner}/{repo}/branches/main/protection`.
 
 ## Comment tu réponds
 
