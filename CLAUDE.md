@@ -17,8 +17,8 @@ Dépôt d'apprentissage GitHub Actions dont le projet fil rouge est **EcoTrack**
 ## Convention de branches et de PR
 
 - Branches : `docs/<sujet>-v<n>` pour les documents, `feat/EX-<id>-<slug>` pour l'implémentation d'une exigence, `fix/EX-<id>-<slug>` pour un correctif.
-- La base par défaut est `main`. La branche `main` n'est **pas protégée** côté GitHub — toute discipline (revue, checks) repose donc sur la convention de PR.
-- L'auteur d'une PR ne peut pas s'auto-approuver via l'API GitHub ; les revues internes sont postées en **commentaire**.
+- La base par défaut est `main`. La branche `main` est **protégée** côté GitHub depuis le 2026-07-29 : PR obligatoire (push direct interdit), checks `mvn verify (api)` et `trivy fs scan` requis verts pour merger, historique linéaire imposé, `force-push` et suppression de branche interdits. `enforce_admins: false` — l'admin garde une échappatoire d'urgence.
+- L'auteur d'une PR ne peut pas s'auto-approuver via l'API GitHub — la protection est donc réglée sur `required_approving_review_count: 0` (mono-mainteneur). Les revues internes sont postées en **commentaire**.
 - Merge : **squash** + suppression de branche.
 
 ## Stack prévue (SDD §1.2 et §2)
