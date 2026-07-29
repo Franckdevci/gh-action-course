@@ -1,0 +1,13 @@
+.DS_Store
+node_modules
+.gitignore
+.vscode
+.agent
+.env
+.md
+
+# Java / Maven
+target/
+*.iml
+.idea/
+HELP.md
