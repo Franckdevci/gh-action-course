@@ -1,5 +1,5 @@
 # SDD — EcoTrack : Document de Conception Logicielle
-**Version 1.0 — statut : BROUILLON (en attente de revue sécurité §9)**
+**Version 1.1 — statut : BROUILLON (revue sécurité appliquée sauf SEC-05/SEC-08)**
 Source de vérité fonctionnelle : `docs/srs.md` v1.2 · Décisions : `docs/adr/` · Conventions : `CLAUDE.md`
 
 > Ce document dit **COMMENT** on réalise ce que le SRS a défini comme **QUOI**.
@@ -226,6 +226,23 @@ Trois exigences réalisées en cinq lignes, et c'est voulu : le tri par
 > EX-NF-01 (P95 < 500 ms sur la liste, jusqu'à 5 000 parcelles).
 > Contrepartie assumée : redondance contrôlée, dans une seule transaction.
 
+### 3.5 Rétention et purges (SEC-06, SEC-07)
+
+- **Journal des alertes (EX-F-07)** : rétention de **24 mois** à compter de la
+  date d'entrée. Au-delà, une purge automatique (tâche planifiée quotidienne)
+  supprime les entrées expirées. La rétention est documentée et son échéance
+  contrôlable en configuration (`ecotrack.retention.journal-alertes-mois`,
+  défaut : `24`). L'immuabilité (EX-F-07 R1) porte sur la période de rétention :
+  aucune modification, seule la purge d'échéance peut retirer une entrée.
+- **Event publication registry (ADR-003)** : les publications **traitées**
+  sont purgées après 7 jours (tâche planifiée) — leur accumulation n'a pas de
+  valeur métier et dégrade les performances. Les publications **non traitées**
+  sont conservées sans limite de durée et **supervisées** : une métrique
+  `ecotrack.events.publications_non_traitees` est exposée via `/actuator`, et
+  toute valeur > 0 déclenche une alerte d'exploitation. Justification : une
+  publication non traitée = une entrée manquante au journal des alertes, donc
+  une violation silencieuse d'EX-NF-03.
+
 ---
 
 ## 4. Contrat d'API REST
@@ -236,14 +253,34 @@ interne (EX-NF-05).
 
 | Méthode | Ressource | Codes | Exigence |
 |---|---|---|---|
-| `POST` | `/parcelles` | 201, 400, 409 | EX-F-01 |
-| `GET` | `/parcelles?page=0&size=50` | 200, 400 | EX-F-05 |
-| `GET` | `/parcelles/{code}` | 200, 404 | EX-F-06 |
-| `POST` | `/parcelles/{code}/releves` | 201, 400, 404, 409 | EX-F-02 |
-| `GET` | `/parcelles/{code}/releves` | 200, 404 | EX-F-06 |
-| `GET` | `/alertes?page=0&size=50` | 200 | EX-F-07 |
-| `GET` | `/parcelles/export.csv` | 200, 404 (flag OFF) | EX-F-04 |
+| `POST` | `/parcelles` | 201, 400, 409, 500 | EX-F-01 |
+| `GET` | `/parcelles?page=0&size=50` | 200, 400, 500 | EX-F-05 |
+| `GET` | `/parcelles/{code}` | 200, 404, 500 | EX-F-06 |
+| `POST` | `/parcelles/{code}/releves` | 201, 400, 404, 409, 500 | EX-F-02 |
+| `GET` | `/parcelles/{code}/releves` | 200, 404, 500 | EX-F-06 |
+| `GET` | `/alertes?page=0&size=50` | 200, 400, 500 | EX-F-07 |
+| `GET` | `/parcelles/export.csv` | 200, 404 (flag OFF), 413, 500 | EX-F-04 |
 | `GET` | `/actuator/health`, `/actuator/info` | 200 | EX-NF-04 |
+
+### 4.1 Pagination : bornes strictes (SEC-02)
+
+Les endpoints paginés (`GET /parcelles`, `GET /alertes`) appliquent les mêmes
+bornes, documentées dans le contrat :
+
+| Paramètre | Type | Bornes | Défaut | Hors bornes |
+|---|---|---|---|---|
+| `page` | entier | `≥ 0` | `0` | `400 Bad Request` |
+| `size` | entier | `1..100` | `50` | `400 Bad Request` |
+
+Règles :
+- `size > 100` : **rejet explicite en 400**, **jamais** de troncature
+  silencieuse à 100 (le contrat serait alors ambigu et le client ne saurait
+  pas qu'il a été bridé).
+- `page < 0` ou `page` non entier : `400 Bad Request`.
+- `size ≤ 0` ou `size` non entier : `400 Bad Request`.
+- Justification : sans authentification (arbitrage n°1), tout paramètre non
+  borné devient une arme (déni de service par saturation mémoire) — cf.
+  SEC-02 de la revue sécurité et impact direct sur EX-NF-02.
 
 **Création d'une parcelle** :
 
@@ -291,6 +328,89 @@ relevé déjà existant à cette date (EX-F-02 R3).
 
 **Aucun champ `statut` ni `taux` n'est acceptable en écriture** sur les
 ressources — vérifié par revue de contrat et par test (EX-NF-07).
+
+### 4.2 Gestion des erreurs (SEC-04)
+
+Un **gestionnaire d'exceptions global** (`@RestControllerAdvice`) est le
+**seul point** de production de réponses d'erreur. Il traduit chaque famille
+d'exception en une réponse RFC 7807 neutre du point de vue métier.
+
+**Règles de traduction** :
+
+| Origine | Réponse | Contenu |
+|---|---|---|
+| Violation de contrainte connue (`DataIntegrityViolationException` sur `UNIQUE(code)`) | `409 Conflict` | `detail`: « une parcelle avec ce code existe déjà » |
+| Violation de contrainte connue (`UNIQUE(parcelle_id, date_observation)`) | `409 Conflict` | `detail`: « un relevé existe déjà à cette date » |
+| Validation d'entrée (VO, `@Valid`, bornes de pagination) | `400 Bad Request` | `detail` métier + `champs[]` (nom du champ + message métier) |
+| Ressource inexistante | `404 Not Found` | `detail`: « ressource introuvable » |
+| Export refusé au-delà de la limite absolue | `413 Payload Too Large` | `detail`: « export refusé, volume au-delà de la limite » |
+| **Toute autre exception non prévue** | `500 Internal Server Error` | `detail`: « erreur interne » — **aucun détail** technique |
+
+**Interdits absolus** dans le corps d'une réponse d'erreur :
+- nom de table, de colonne, de contrainte SQL ;
+- nom de classe Java, package, méthode ;
+- version du SGBD, du framework, du JDK ;
+- trace d'exécution, extrait de requête SQL, message brut d'`SQLException`.
+
+**Configuration Spring imposée** (fichier `application.yml`, tous profils) :
+
+```yaml
+server:
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: never
+    whitelabel:
+      enabled: false
+```
+
+**Test associé** : `should_ne_pas_exposer_schema_when_violation_contrainte` —
+provoque chaque violation de contrainte connue et vérifie qu'aucun nom de
+table, de contrainte, de classe ni de version n'apparaît dans la réponse.
+
+### 4.3 Export CSV : échappement et production en flux (SEC-01, SEC-03)
+
+**Échappement anti-injection de formule (SEC-01, adapter d'export uniquement)** :
+
+L'adapter d'export CSV applique la règle suivante à **chaque valeur de cellule**
+avant écriture, sans exception :
+
+- Si la valeur (une fois convertie en chaîne) commence par l'un des caractères
+  `=`, `+`, `-`, `@`, une tabulation (`\t`) ou un retour chariot (`\r`), elle
+  est **préfixée d'une apostrophe** (`'`).
+- Tous les guillemets internes (`"`) sont **doublés** (`""`).
+- Tous les champs sont **systématiquement encadrés** de guillemets, quel que
+  soit leur contenu (pas d'encadrement conditionnel).
+
+Cette règle est une responsabilité **exclusive de l'adapter d'export** :
+elle n'existe **jamais** dans le domaine (`Localite` reste un texte libre de
+100 caractères, ses invariants ne changent pas — la sécurité de sortie n'est
+pas une contrainte d'entrée). Justification : la même valeur peut être
+affichée sans échappement dans le HTML (React échappe déjà) mais doit être
+échappée à l'export CSV — la règle appartient au canal de sortie concerné.
+
+Test associé : `should_neutraliser_formule_when_localite_commence_par_egal`.
+
+**Production en flux (SEC-03)** :
+
+L'export CSV est produit en **flux** — jamais construit intégralement en
+mémoire. Contraintes de conception :
+
+- **Écriture progressive** dans la réponse HTTP (`StreamingResponseBody`
+  Spring) : chaque ligne est sérialisée puis flushée avant lecture de la
+  suivante.
+- **Lecture par lots côté base** : itération sur un curseur JDBC ou un
+  `Stream<Parcelle>` JPA borné (taille de lot : 500 lignes). Aucun
+  `findAll()` ni chargement complet.
+- **Limite absolue** : `ecotrack.export.max-lignes` (défaut : `10 000`,
+  cohérent avec H3 = 5 000 parcelles + marge). Au-delà, l'export est
+  **refusé explicitement** en `413 Payload Too Large` — pas de troncature
+  silencieuse.
+- L'export est **inclus au périmètre du test de charge EX-NF-01** : les
+  scénarios de charge exécutent aussi `/parcelles/export.csv` en parallèle
+  du détail et de la liste, avec vérification de l'absence d'accumulation
+  mémoire côté API.
 
 ---
 
@@ -383,6 +503,16 @@ ni dans une image). Flags : `ecotrack.features.export-csv` (défaut : `false`).
 5. `should_journaliser_alerte_when_crash_apres_enregistrement` — EX-NF-03,
    vérifie la reprise de l'event au redémarrage.
 6. `should_afficher_tiret_when_parcelle_sans_releve` (front).
+7. `should_neutraliser_formule_when_localite_commence_par_egal` — adapter
+   d'export CSV, SEC-01 : vérifie qu'une localité `=HYPERLINK(...)` sort
+   préfixée d'une apostrophe et encadrée de guillemets.
+8. `should_rejeter_when_size_superieur_a_100` — contrat REST, SEC-02 :
+   vérifie que `GET /parcelles?size=101` et `GET /alertes?size=101` répondent
+   `400 Bad Request` sans troncature silencieuse.
+9. `should_ne_pas_exposer_schema_when_violation_contrainte` — gestionnaire
+   d'erreurs global, SEC-04 : provoque chaque violation de contrainte connue
+   et vérifie qu'aucun nom de table, contrainte, classe Java ni version ne
+   figure dans la réponse d'erreur.
 
 ---
 
@@ -409,16 +539,40 @@ ni dans une image). Flags : `ecotrack.features.export-csv` (défaut : `false`).
 
 ---
 
-## 9. Points ouverts pour la revue sécurité (§2.4 du TP)
+## 9. Points issus de la revue sécurité — état d'avancement
 
-À soumettre à l'agent `security-reviewer` avant tout code :
-1. Absence d'authentification (arbitrage n°1) : quel risque en staging exposé ?
-2. Export CSV : injection de formule (CSV injection) sur le champ `localite` ?
-3. Pagination : `size` non borné = déni de service potentiel — borne max à fixer.
-4. Messages d'erreur RFC 7807 : ne pas fuiter de contrainte SQL ni de version.
-5. Journal des alertes : donnée à conserver combien de temps ?
+La revue sécurité (`docs/revue-securite-sdd.md`, 2026-07-29) a produit 8
+constats (4 bloquants, 4 importants). Cette section fait le point sur ce qui
+est **TRAITÉ dans la v1.1** et ce qui reste **EN DETTE**.
+
+| Constat | Gravité | Statut v1.1 | Traité dans |
+|---|---|---|---|
+| SEC-01 — Injection de formule CSV | Bloquant | **TRAITÉ** | §4.3 (échappement adapter) + test 7 de §7.2 |
+| SEC-02 — `size` non borné | Bloquant | **TRAITÉ** | §4.1 (bornes strictes) + test 8 de §7.2 |
+| SEC-03 — Export CSV non paginé | Bloquant | **TRAITÉ** | §4.3 (flux + limite absolue) + §7.1 (charge inclut export) |
+| SEC-04 — Fuite d'information par erreurs | Bloquant | **TRAITÉ** | §4.2 (gestionnaire global) + test 9 de §7.2 |
+| SEC-05 — Pas de rate limiting ni de limite de corps | Important | **EN DETTE** | À traiter en Phase 10 (limitation au niveau ingress) — tracé ici, pas silencieux |
+| SEC-06 — Rétention du journal des alertes | Important | **TRAITÉ** | §3.5 (24 mois, purge automatique) |
+| SEC-07 — Purge des publications d'events | Important | **TRAITÉ** | §3.5 (purge des traitées + supervision des non traitées) |
+| SEC-08 — Journalisation applicative | Important | **EN DETTE** | À concevoir avant Checkpoint 3 (opérations d'écriture, sans secret) — tracé ici, pas silencieux |
+
+**Points de vigilance (SEC-09 à SEC-11)** : à surveiller pendant
+l'implémentation, non repris ici (voir §4 de la revue).
+
+**Rappel** : SEC-05 et SEC-08 restent des dettes **explicites** et
+**tracées** — elles ne sont pas silencieusement abandonnées, elles sont
+planifiées pour des jalons ultérieurs (Phase 10 pour SEC-05, Checkpoint 3
+pour SEC-08).
 
 ---
 
-*Historique : v1.0 — conception initiale tracée sur SRS v1.2.
-Toute évolution passe par une Pull Request référencée.*
+*Historique :*
+- *v1.0 — conception initiale tracée sur SRS v1.2.*
+- *v1.1 — application des 6 corrections de la revue sécurité (SEC-01
+  échappement CSV, SEC-02 bornes de pagination, SEC-03 export CSV en flux +
+  inclusion dans EX-NF-01, SEC-04 gestion d'erreurs sans fuite, SEC-06
+  rétention 24 mois du journal, SEC-07 purge/supervision des publications
+  d'events, tests non négociables 7 à 9). Restent en dette : SEC-05
+  (rate limiting), SEC-08 (journalisation applicative).*
+
+*Toute évolution passe par une Pull Request référencée.*
