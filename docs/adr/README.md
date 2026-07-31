@@ -15,6 +15,10 @@ Format : MADR allégé (Statut · Date · Exigences concernées · Contexte · D
 | [ADR-003](ADR-003-events-inter-modules.md) | Communication `releves` → `alertes` par event Spring Modulith | Accepté | EX-F-03 R2, EX-F-07, EX-NF-03 |
 | [ADR-004](ADR-004-feature-flags.md) | Feature flags par propriétés Spring, exposés au front par l'API | Accepté | EX-F-04 R1, C2 |
 | [ADR-005](ADR-005-denormalisation-dernier-releve.md) | Dénormalisation du dernier relevé sur la ligne `parcelle` | Accepté | EX-NF-01, EX-F-05, EX-F-04 |
+| [ADR-006](ADR-006-plafonds-export-csv.md) | Plafonds et streaming de l'export CSV | Accepté | EX-F-04, EX-NF-01, SEC-03 |
+| [ADR-007](ADR-007-retention-et-purges.md) | Rétention du journal des alertes et du registry d'events | Proposé | EX-F-07 R1, EX-NF-03, SEC-06, SEC-07 |
+| [ADR-008](ADR-008-dlq-event-statut-parcelle.md) | Stratégie DLQ et rejeu de l'event `StatutParcelleChange` (complète ADR-003) | Proposé | EX-NF-03, EX-F-07 |
+| [ADR-009](ADR-009-journalisation-applicative.md) | Politique de journalisation applicative | Proposé | EX-NF-06, SEC-08 |
 
 ## Règles
 
