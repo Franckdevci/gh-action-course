@@ -4,6 +4,7 @@ import ci.ecotrack.parcelles.application.CodeParcelleDejaUtiliseException;
 import ci.ecotrack.parcelles.domaine.DonneeParcelleInvalideException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -29,6 +30,14 @@ class ApiExceptionHandler {
     ProblemDetail traiterDomaineInvalide(DonneeParcelleInvalideException e) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Requete invalide");
+        return pd;
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ProblemDetail traiterCorpsIllisible(HttpMessageNotReadableException e) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Corps de requete illisible");
         pd.setTitle("Requete invalide");
         return pd;
     }

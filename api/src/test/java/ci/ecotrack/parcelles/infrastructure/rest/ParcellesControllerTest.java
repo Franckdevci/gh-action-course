@@ -128,6 +128,18 @@ class ParcellesControllerTest {
     }
 
     @Test
+    void should_400_rfc7807_when_json_malforme() throws Exception {
+        mvc.perform(post("/api/v1/parcelles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{invalid json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").value("Requete invalide"))
+                .andExpect(jsonPath("$.detail").value("Corps de requete illisible"));
+    }
+
+    @Test
     void should_400_when_localite_vide() throws Exception {
         mvc.perform(post("/api/v1/parcelles")
                         .contentType(MediaType.APPLICATION_JSON)
