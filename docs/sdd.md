@@ -838,8 +838,8 @@ Wave qui la portera.
 |---|---|---|---|---|---|
 | SEC-B-01 — Endpoint `/admin/events/{id}/retry` sans défenses | BLOQUANT | ✅ §4.4 (3 défenses documentaires) | ❌ | ❌ | Wave 2 (impl controller + condition + test isolement port) |
 | SEC-B-03 — `dernierTaux` en flottant JSON | BLOQUANT | ✅ §4 (exemple + note) + §5.2 (`z.string()`) | ❌ (sérialisation courante inchangée tant que EX-F-05 non livré) | ❌ | Wave 2 (adapter REST + test Jackson) |
-| SEC-B-04 — Deep pagination `page` non bornée | BLOQUANT | ✅ §4.1 (`page ∈ [0, 200]`) | ❌ (validation `page` à câbler) | ❌ | Wave 2 |
-| SEC-B-06 — Absence de contrainte de longueur/charset | BLOQUANT | ✅ §3.2 (charset Localite) + §6.1 (bornes body) | ❌ | ❌ | Wave 2 (regex Localite + `application.yml`) |
+| SEC-B-04 — Deep pagination `page` non bornée | BLOQUANT | ✅ §4.1 (`page ∈ [0, 200]`) | ✅ `Pagination.java` (`PAGE_MAX=200`, PR #26) | ✅ `PaginationTest` — 17 cas, bornes 0 et 200 acceptées, 201 / 10 000 / MAX rejetées | VO complet ; câblage `@ModelAttribute Pagination` à faire à l'ouverture du 1er endpoint list (EX-F-05). Aucun endpoint `GET` avec `page` n'est actuellement exposé, donc pas de surface exploitable. |
+| SEC-B-06 — Absence de contrainte de longueur/charset | BLOQUANT | ✅ §3.2 (charset Localite) + §6.1 (bornes body) | ✅ `Localite.java` (rejet null bytes, directionnels U+202A..E / U+2066..9, contrôles hors `\t \n \r`, PR #26) + `application.yml` (`max-in-memory-size` + `max-http-form-post-size` 256 KB, PR #32) | ✅ `ParcellesRestHardeningTest` — 4 cas REST (null byte, RTL override, contrôle, champ inconnu 300 KB) verrouillent le rejet 400 RFC 7807 sans reflection de l'input (PR #42) + `LocaliteTest` unitaire | Complet |
 | SEC-I-01 — `GET /api/v1/config` sans whitelist | IMPORTANT | ✅ §5.3 (whitelist explicite) | ❌ | ❌ | Wave 2 |
 | SEC-I-02 — Actuator `/health` sans distinction | IMPORTANT | ✅ §6.2 | ❌ (`application.yml` à appliquer) | ❌ | Wave 2 |
 | SEC-I-03 — Métriques sans expose ni protection | IMPORTANT | ✅ §6.2 (port management dédié, loopback) | ❌ | ❌ | Wave 2 |
