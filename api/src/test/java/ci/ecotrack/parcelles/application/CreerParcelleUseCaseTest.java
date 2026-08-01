@@ -14,6 +14,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,8 +50,17 @@ class CreerParcelleUseCaseTest {
 
     @Test
     void should_propager_exception_when_repository_leve_conflit_unicite() {
-        ParcellesRepository repositoryEnConflit = parcelle -> {
-            throw new CodeParcelleDejaUtiliseException("Une parcelle avec ce code existe deja");
+        ParcellesRepository repositoryEnConflit = new ParcellesRepository() {
+            @Override
+            public Parcelle enregistrer(Parcelle parcelle) {
+                throw new CodeParcelleDejaUtiliseException("Une parcelle avec ce code existe deja");
+            }
+            @Override
+            public Optional<Parcelle> trouverParCode(CodeParcelle code) { return Optional.empty(); }
+            @Override
+            public Optional<Parcelle> trouverParId(UUID id) { return Optional.empty(); }
+            @Override
+            public void sauvegarder(Parcelle parcelle) { }
         };
         CreerParcelleUseCase useCaseEnConflit = new CreerParcelleUseCase(repositoryEnConflit, HORLOGE);
         CreerParcelleCommande commande = new CreerParcelleCommande(
@@ -71,6 +82,26 @@ class CreerParcelleUseCaseTest {
         public Parcelle enregistrer(Parcelle parcelle) {
             parcelles.add(parcelle);
             return parcelle;
+        }
+
+        @Override
+        public Optional<Parcelle> trouverParCode(CodeParcelle code) {
+            return parcelles.stream()
+                    .filter(p -> p.code().valeur().equals(code.valeur()))
+                    .findFirst();
+        }
+
+        @Override
+        public Optional<Parcelle> trouverParId(UUID id) {
+            return parcelles.stream()
+                    .filter(p -> p.id().valeur().equals(id))
+                    .findFirst();
+        }
+
+        @Override
+        public void sauvegarder(Parcelle parcelle) {
+            parcelles.removeIf(p -> p.id().valeur().equals(parcelle.id().valeur()));
+            parcelles.add(parcelle);
         }
 
         List<Parcelle> contenu() {

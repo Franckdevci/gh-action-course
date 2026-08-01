@@ -1,6 +1,7 @@
 package ci.ecotrack.parcelles.domaine;
 
 import ci.ecotrack.shared.StatutParcelle;
+import ci.ecotrack.shared.TauxDeSurvie;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -14,6 +15,8 @@ public class Parcelle {
     private final NombrePlants plantsInitiaux;
     private final LocalDate datePlantation;
     private StatutParcelle statut;
+    private TauxDeSurvie dernierTaux;
+    private LocalDate dateDernierReleve;
 
     private Parcelle(ParcelleId id,
                      CodeParcelle code,
@@ -21,7 +24,9 @@ public class Parcelle {
                      Superficie superficie,
                      NombrePlants plantsInitiaux,
                      LocalDate datePlantation,
-                     StatutParcelle statut) {
+                     StatutParcelle statut,
+                     TauxDeSurvie dernierTaux,
+                     LocalDate dateDernierReleve) {
         this.id = id;
         this.code = code;
         this.localite = localite;
@@ -29,6 +34,8 @@ public class Parcelle {
         this.plantsInitiaux = plantsInitiaux;
         this.datePlantation = datePlantation;
         this.statut = statut;
+        this.dernierTaux = dernierTaux;
+        this.dateDernierReleve = dateDernierReleve;
     }
 
     public static Parcelle creer(CodeParcelle code,
@@ -51,7 +58,9 @@ public class Parcelle {
                 superficie,
                 plantsInitiaux,
                 datePlantation,
-                StatutParcelle.EN_SUIVI);
+                StatutParcelle.EN_SUIVI,
+                null,
+                null);
     }
 
     public static Parcelle reconstituer(ParcelleId id,
@@ -60,8 +69,25 @@ public class Parcelle {
                                         Superficie superficie,
                                         NombrePlants plantsInitiaux,
                                         LocalDate datePlantation,
-                                        StatutParcelle statut) {
-        return new Parcelle(id, code, localite, superficie, plantsInitiaux, datePlantation, statut);
+                                        StatutParcelle statut,
+                                        TauxDeSurvie dernierTaux,
+                                        LocalDate dateDernierReleve) {
+        return new Parcelle(id, code, localite, superficie, plantsInitiaux,
+                datePlantation, statut, dernierTaux, dateDernierReleve);
+    }
+
+    public void enregistrerDernierReleve(TauxDeSurvie taux, LocalDate dateObservation) {
+        if (taux == null) {
+            throw new DonneeParcelleInvalideException("Le taux de survie est requis");
+        }
+        if (dateObservation == null) {
+            throw new DonneeParcelleInvalideException("La date d'observation est requise");
+        }
+        if (this.dateDernierReleve != null && !dateObservation.isAfter(this.dateDernierReleve)) {
+            return;
+        }
+        this.dernierTaux = taux;
+        this.dateDernierReleve = dateObservation;
     }
 
     public ParcelleId id() { return id; }
@@ -71,4 +97,6 @@ public class Parcelle {
     public NombrePlants plantsInitiaux() { return plantsInitiaux; }
     public LocalDate datePlantation() { return datePlantation; }
     public StatutParcelle statut() { return statut; }
+    public TauxDeSurvie dernierTaux() { return dernierTaux; }
+    public LocalDate dateDernierReleve() { return dateDernierReleve; }
 }

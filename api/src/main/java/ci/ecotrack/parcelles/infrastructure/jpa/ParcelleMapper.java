@@ -7,6 +7,7 @@ import ci.ecotrack.parcelles.domaine.Parcelle;
 import ci.ecotrack.parcelles.domaine.ParcelleId;
 import ci.ecotrack.parcelles.domaine.Superficie;
 import ci.ecotrack.shared.StatutParcelle;
+import ci.ecotrack.shared.TauxDeSurvie;
 
 final class ParcelleMapper {
 
@@ -21,7 +22,9 @@ final class ParcelleMapper {
                 parcelle.superficie().valeur(),
                 parcelle.plantsInitiaux().valeur(),
                 parcelle.datePlantation(),
-                parcelle.statut().name());
+                parcelle.statut().name(),
+                parcelle.dernierTaux() == null ? null : parcelle.dernierTaux().valeur(),
+                parcelle.dateDernierReleve());
     }
 
     static Parcelle versDomaine(ParcelleJpaEntity entite) {
@@ -32,6 +35,8 @@ final class ParcelleMapper {
                 new Superficie(entite.getSuperficie()),
                 new NombrePlants(entite.getPlantsInitiaux()),
                 entite.getDatePlantation(),
-                StatutParcelle.valueOf(entite.getStatut()));
+                StatutParcelle.valueOf(entite.getStatut()),
+                entite.getDernierTaux() == null ? null : new TauxDeSurvie(entite.getDernierTaux()),
+                entite.getDateDernierReleve());
     }
 }

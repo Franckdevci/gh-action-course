@@ -54,6 +54,57 @@ class JpaParcelleRepositoryTest {
                 .isInstanceOf(CodeParcelleDejaUtiliseException.class);
     }
 
+    @Test
+    void should_retrouver_une_parcelle_par_code() {
+        Parcelle parcelle = uneParcelle("PRC-2026-042");
+        repository.enregistrer(parcelle);
+
+        var retrouvee = repository.trouverParCode(new CodeParcelle("PRC-2026-042"));
+
+        assertThat(retrouvee).isPresent();
+        assertThat(retrouvee.get().id()).isEqualTo(parcelle.id());
+    }
+
+    @Test
+    void should_retourner_empty_when_code_inconnu() {
+        var retrouvee = repository.trouverParCode(new CodeParcelle("PRC-2026-999"));
+
+        assertThat(retrouvee).isEmpty();
+    }
+
+    @Test
+    void should_retrouver_une_parcelle_par_id() {
+        Parcelle parcelle = uneParcelle("PRC-2026-042");
+        repository.enregistrer(parcelle);
+
+        var retrouvee = repository.trouverParId(parcelle.id().valeur());
+
+        assertThat(retrouvee).isPresent();
+        assertThat(retrouvee.get().code().valeur()).isEqualTo("PRC-2026-042");
+    }
+
+    @Test
+    void should_retourner_empty_when_id_inconnu() {
+        var retrouvee = repository.trouverParId(java.util.UUID.randomUUID());
+
+        assertThat(retrouvee).isEmpty();
+    }
+
+    @Test
+    void should_sauvegarder_les_modifications_de_denormalisation() {
+        Parcelle parcelle = uneParcelle("PRC-2026-042");
+        repository.enregistrer(parcelle);
+        parcelle.enregistrerDernierReleve(
+                new ci.ecotrack.shared.TauxDeSurvie(new BigDecimal("0.85")),
+                LocalDate.of(2026, 7, 20));
+
+        repository.sauvegarder(parcelle);
+
+        var relue = repository.trouverParId(parcelle.id().valeur()).orElseThrow();
+        assertThat(relue.dernierTaux().valeur()).isEqualByComparingTo("0.85");
+        assertThat(relue.dateDernierReleve()).isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
     private Parcelle uneParcelle(String code) {
         return Parcelle.creer(
                 new CodeParcelle(code),
