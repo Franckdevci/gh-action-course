@@ -47,7 +47,9 @@ class RelevesController {
                     plantsVivants borne par plantsInitiaux de la parcelle. Traca : SRS EX-F-02.
                     """)
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Releve enregistre. En-tete Location vers la ressource."),
+            @ApiResponse(responseCode = "201", description = "Releve enregistre. En-tete Location vers la ressource.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ReleveResponse.class))),
             @ApiResponse(responseCode = "400", description = "Payload invalide (validation Bean ou regle domaine)",
                     content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(implementation = ProblemDetail.class))),

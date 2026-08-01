@@ -47,7 +47,9 @@ class ParcellesController {
                     Traca : SRS EX-F-01.
                     """)
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Parcelle creee. En-tete Location vers la ressource."),
+            @ApiResponse(responseCode = "201", description = "Parcelle creee. En-tete Location vers la ressource.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ParcelleResponse.class))),
             @ApiResponse(responseCode = "400", description = "Payload invalide (validation Bean ou domaine)",
                     content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(implementation = ProblemDetail.class))),
