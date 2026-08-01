@@ -1,0 +1,106 @@
+# .github/workflows/weekly-health-check.yml
+#
+# Bilan hebdomadaire de cohérence documentaire — le seul workflow du projet
+# qui ne dépend d'aucune action humaine.
+#
+# RAISON D'ÊTRE : en dev solo, personne ne signale la dérive silencieuse entre
+# ce que le SRS promet, ce que le SDD conçoit et ce que le code fait. Une PR
+# est relue au moment où elle est écrite ; la cohérence de l'ensemble, jamais.
+# Ce workflow occupe la place du collègue qui, un lundi matin, dirait :
+# « au fait, on avait dit que l'export serait paginé, non ? »
+
+name: Weekly Health Check
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"      # tous les lundis à 07h00 UTC
+  workflow_dispatch:          # déclenchement manuel pour tester le prompt
+
+permissions:
+  contents: read
+  issues: write               # ouvrir l'issue de bilan
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # l'historique sert à mesurer l'activité de la semaine
+
+      - name: Bilan de cohérence par Claude
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Tu es l'auditeur hebdomadaire du projet EcoTrack. Lis CLAUDE.md,
+            docs/srs.md, docs/sdd.md, docs/adr/ et docs/revue-securite-sdd.md,
+            puis examine le code des modules applicatifs présents (api/ pour le
+            backend Java, web/ pour le frontend Next.js). Si l'un des deux
+            n'existe pas encore, ne le signale pas comme un écart : le projet
+            avance en phase docs-first et l'implémentation rattrape par PR.
+
+            Ton rôle n'est PAS de relire du code ligne à ligne (les PR s'en
+            chargent) mais de détecter la DÉRIVE D'ENSEMBLE que personne ne voit
+            en travaillant PR par PR.
+
+            Vérifie les cinq axes suivants :
+
+            1. EXIGENCES ORPHELINES ET CODE ORPHELIN
+               - Quelles exigences EX-F-xx / EX-NF-xx du SRS n'ont AUCUNE
+                 implémentation ni test correspondant DANS UN MODULE DÉJÀ
+                 PRÉSENT ? Une exigence dont le module cible (api/ ou web/)
+                 n'existe pas encore n'est PAS orpheline : ne la mentionne pas.
+               - Inversement : quel code métier notable ne se rattache à AUCUNE
+                 exigence ? (du code sans exigence est soit une exigence
+                 manquante au SRS, soit du périmètre non décidé)
+
+            2. DIVERGENCE SDD / CODE
+               - Le contrat d'API du SDD §4 correspond-il aux endpoints réels
+                 (routes, codes de réponse, pagination) ?
+               - Le découpage en modules du SDD §2 correspond-il aux packages ?
+               - Le modèle de domaine du SDD §3 correspond-il aux classes ?
+               Signale chaque écart et dis LEQUEL des deux doit être corrigé :
+               le code (bug d'implémentation) ou le SDD (conception périmée).
+
+            3. DÉCISIONS CONTOURNÉES
+               - Une ADR est-elle violée quelque part ? En particulier :
+                 ADR-002 (aucun import JPA/Spring dans un package ..domaine..,
+                 ddl-auto jamais en update), ADR-003 (aucune dépendance directe
+                 de releves vers alertes), ADR-004 (le front ne décide pas d'un
+                 flag), ADR-005 (aucune écriture de relevé hors du use case).
+               - Un `double` a-t-il été introduit là où un BigDecimal est exigé ?
+
+            4. DETTE ET SÉCURITÉ EN SUSPENS
+               - Les constats SEC-05 (limitation de débit) et SEC-08
+                 (journalisation applicative) sont-ils toujours en dette non
+                 traitée ? Rappelle-les s'ils le sont depuis plus d'un mois.
+               - Un feature flag protège-t-il une fonctionnalité désormais
+                 acquise ? (un flag qui survit à son besoin est de la dette)
+               - Des TODO / FIXME se sont-ils accumulés dans le code ?
+
+            5. ACTIVITÉ DE LA SEMAINE
+               - Résume en trois lignes ce qui a été mergé dans main
+                 (`git log --since="7 days ago" --oneline main`).
+               - Signale toute PR mergée dont le titre ne référence pas une
+                 exigence EX-xx (rupture de traçabilité).
+
+            FORMAT DE SORTIE — ouvre une issue GitHub intitulée
+            "Health Check — semaine du <date du lundi>", contenant :
+            - un tableau : axe / constat / gravité (bloquant, important,
+              vigilance) / action suggérée
+            - une section "Activité de la semaine" en trois lignes
+            - RIEN d'autre : pas de compliment, pas de résumé de ce que tu as
+              vérifié, pas de recommandation générique de bonnes pratiques.
+
+            Si aucun écart n'est trouvé, n'ouvre PAS d'issue : poste seulement
+            le message "Health check OK — aucune dérive détectée." dans les logs
+            du job. Une issue vide chaque lundi apprend à ignorer les issues.
+
+            Sois SPÉCIFIQUE : chaque constat doit citer un fichier, une exigence
+            ou une ADR. Un constat non ancré dans le dépôt n'a aucune valeur.
+          claude_args: |
+            --allowedTools "Bash(git log:*),Bash(git diff:*),Bash(gh issue:*),Read,Grep,Glob"
+            --max-turns 30
