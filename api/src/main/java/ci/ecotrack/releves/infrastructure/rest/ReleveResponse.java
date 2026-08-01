@@ -2,8 +2,9 @@ package ci.ecotrack.releves.infrastructure.rest;
 
 import ci.ecotrack.releves.domaine.Releve;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.Locale;
 
 record ReleveResponse(
         String id,
@@ -11,9 +12,13 @@ record ReleveResponse(
         int plantsVivants,
         String tauxSurvie) {
 
+    private static final BigDecimal CENT = new BigDecimal("100");
+
     static ReleveResponse de(Releve releve) {
-        String tauxFormate = String.format(Locale.US, "%.1f",
-                releve.tauxDeSurvie().valeur().doubleValue() * 100.0);
+        String tauxFormate = releve.tauxDeSurvie().valeur()
+                .multiply(CENT)
+                .setScale(1, RoundingMode.HALF_UP)
+                .toPlainString();
         return new ReleveResponse(
                 releve.id().valeur().toString(),
                 releve.dateObservation().valeur(),
