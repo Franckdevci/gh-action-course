@@ -3,7 +3,7 @@ package ci.ecotrack.shared;
 public record Pagination(int page, int size) {
 
     public static final int PAGE_MIN = 0;
-    public static final int PAGE_MAX = 10_000;
+    public static final int PAGE_MAX = 200;
     public static final int SIZE_MIN = 1;
     public static final int SIZE_MAX = 100;
 

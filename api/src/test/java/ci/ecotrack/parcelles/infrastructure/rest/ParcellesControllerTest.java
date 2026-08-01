@@ -151,4 +151,21 @@ class ParcellesControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.champs[?(@.champ=='localite')]").exists());
     }
+
+    @Test
+    void should_ne_pas_refleter_input_when_code_contient_script() throws Exception {
+        mvc.perform(post("/api/v1/parcelles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"<script>alert(1)</script>","localite":"Bingerville",
+                                 "superficie":12.50,"plantsInitiaux":2000,
+                                 "datePlantation":"2026-06-15"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("<script>"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("alert(1)"))));
+    }
 }
