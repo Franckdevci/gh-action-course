@@ -1,0 +1,30 @@
+# .github/workflows/claude-review.yml
+name: Claude Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Fais la review de cette PR en te basant sur CLAUDE.md, docs/srs.md
+            et docs/sdd.md. Vérifie dans l'ordre :
+            1. La PR référence une exigence EX-xx et l'implémente fidèlement
+               (critères Gherkin couverts par des tests) ;
+            2. Frontières Modulith et règles d'architecture respectées ;
+            3. Côté front : couche API typée/zod, pas de any, états UI ;
+            4. Sécurité : validation des entrées, pas de secret, pas d'injection ;
+            5. Qualité des tests (comportement, pas implémentation).
+            Commente UNIQUEMENT ce qui doit changer, par sévérité
+            (bloquant / important / suggestion). Sois bref et actionnable.
