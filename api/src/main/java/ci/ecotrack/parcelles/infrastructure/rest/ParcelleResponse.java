@@ -4,8 +4,8 @@ import ci.ecotrack.parcelles.domaine.Parcelle;
 import ci.ecotrack.shared.StatutParcelle;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.Locale;
 
 record ParcelleResponse(
         String code,
@@ -17,11 +17,15 @@ record ParcelleResponse(
         String dernierTaux,
         LocalDate dateDernierReleve) {
 
+    private static final BigDecimal CENT = new BigDecimal("100");
+
     static ParcelleResponse de(Parcelle parcelle) {
         String tauxFormate = parcelle.dernierTaux() == null
                 ? null
-                : String.format(Locale.US, "%.1f",
-                        parcelle.dernierTaux().valeur().doubleValue() * 100.0);
+                : parcelle.dernierTaux().valeur()
+                        .multiply(CENT)
+                        .setScale(1, RoundingMode.HALF_UP)
+                        .toPlainString();
         return new ParcelleResponse(
                 parcelle.code().valeur(),
                 parcelle.localite().valeur(),
