@@ -14,6 +14,11 @@ spring:
     enabled: true
     baseline-on-migrate: false
     locations: classpath:db/migration
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true      # SEC-INFO-02 : rejette les champs surprises (contrat REST strict)
+  codec:
+    max-in-memory-size: 262144              # SEC-B-06 : 256 Ko max deserialise en memoire
 
 server:
   error:
@@ -23,12 +28,20 @@ server:
     include-exception: false
     whitelabel:
       enabled: false
+  tomcat:
+    max-http-form-post-size: 262144         # SEC-B-06 : 256 Ko max pour body HTTP form
+    max-swallow-size: 262144                # SEC-B-06 : borne la lecture avant erreur
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info                # SEC-I-02 : jamais env, beans, mappings, heapdump...
+  endpoint:
+    health:
+      show-details: never                   # SEC-I-02 : pas de details composants
+      probes:
+        enabled: true                       # SEC-I-02 : /actuator/health/readiness et /liveness (EX-NF-02)
   info:
     java:
       enabled: true
@@ -41,4 +54,6 @@ ecotrack:
   export:
     max-lignes: 10000
   retention:
-    journal-alertes-mois: 24
+    journal-alertes-mois: 24                # SEC-I-06 : borne >= 12 verrouillee par @Min sur EcotrackProperties
+  admin:
+    enabled: false                          # SEC-B-01 : endpoint admin desactive par defaut (flag)
