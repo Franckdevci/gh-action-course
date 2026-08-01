@@ -33,6 +33,15 @@ jobs:
         working-directory: api
         run: mvn -B -ntp verify
 
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: api/target/site/jacoco/
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Upload surefire reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -49,11 +58,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Compute daily cache key
+        id: date
+        run: echo "today=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
       - name: Cache Trivy vulnerability database
         uses: actions/cache@v4
         with:
           path: ~/.cache/trivy
-          key: trivy-db-${{ github.run_id }}
+          key: trivy-db-${{ steps.date.outputs.today }}
           restore-keys: |
             trivy-db-
 
