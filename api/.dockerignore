@@ -1,0 +1,41 @@
+# Build output
+target/
+*.jar
+*.war
+
+# Maven local
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git / VCS
+.git/
+.gitignore
+.gitattributes
+
+# Docker (évite l'auto-inclusion)
+Dockerfile
+.dockerignore
+
+# Logs & tmp
+*.log
+tmp/
+temp/
+
+# Tests / couverture
+coverage/
+jacoco.exec
