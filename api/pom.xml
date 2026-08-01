@@ -24,6 +24,14 @@
         <archunit.version>1.3.0</archunit.version>
         <postgresql.version>42.7.12</postgresql.version>
         <jacoco.version>0.8.13</jacoco.version>
+        <sonar-maven-plugin.version>5.0.0.4389</sonar-maven-plugin.version>
+
+        <!-- SonarCloud -->
+        <sonar.organization>franckdevci</sonar.organization>
+        <sonar.projectKey>Franckdevci_gh-action-course</sonar.projectKey>
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.java.source>21</sonar.java.source>
     </properties>
 
     <dependencyManagement>
@@ -133,6 +141,11 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>${sonar-maven-plugin.version}</version>
             </plugin>
         </plugins>
     </build>
