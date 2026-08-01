@@ -69,21 +69,21 @@ class LocaliteTest {
 
     @Test
     void should_rejeter_when_contient_rtl_override() {
-        assertThatThrownBy(() -> new Localite("Bing‮erville"))
+        assertThatThrownBy(() -> new Localite("Bing\u202Eerville"))
                 .isInstanceOf(DonneeParcelleInvalideException.class)
                 .hasMessageContaining("directionnel");
     }
 
     @Test
     void should_rejeter_when_contient_lrm_isolate() {
-        assertThatThrownBy(() -> new Localite("Bing⁦erville"))
+        assertThatThrownBy(() -> new Localite("Bing\u2066erville"))
                 .isInstanceOf(DonneeParcelleInvalideException.class)
                 .hasMessageContaining("directionnel");
     }
 
     @Test
     void should_rejeter_when_contient_caractere_controle() {
-        assertThatThrownBy(() -> new Localite("Bingerville"))
+        assertThatThrownBy(() -> new Localite("Bing\u0001erville"))
                 .isInstanceOf(DonneeParcelleInvalideException.class)
                 .hasMessageContaining("controle");
     }
