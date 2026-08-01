@@ -23,7 +23,7 @@ Dépôt d'apprentissage GitHub Actions dont le projet fil rouge est **EcoTrack**
 
 ## Stack prévue (SDD §1.2 et §2)
 
-- **Backend** : Java 21, Spring Modulith, Maven, PostgreSQL, Flyway (`ddl-auto=validate`).
+- **Backend** : Java 21, Spring Modulith, Maven, PostgreSQL, Flyway (`ddl-auto=validate`), springdoc-openapi (Swagger UI **dev-only** — `/v3/api-docs` + `/swagger-ui/index.html` fermés par défaut via `springdoc.*.enabled=false` dans `application.yml`, réactivés dans `application-dev.yml`).
 - **Frontend** : Next.js (App Router), TypeScript, Tailwind, zod pour valider les réponses aux frontières.
 - **Routage** : le navigateur ne parle qu'au conteneur `web` ; Next.js relaie `/api/*` vers `http://api:8080` (variable `API_INTERNAL_URL`). Aucune configuration CORS, aucune URL d'API exposée au client.
 - **Erreurs API** : format **RFC 7807** (`application/problem+json`), aucun détail interne (EX-NF-05).
