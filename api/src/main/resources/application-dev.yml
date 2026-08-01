@@ -4,3 +4,14 @@ spring:
     username: sa
     password:
     driver-class-name: org.h2.Driver
+
+# SEC-I-02 : Swagger UI et OpenAPI JSON exposes en dev uniquement (contre-poids en application.yml).
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html                  # redirect vers /swagger-ui/index.html
+    operations-sorter: alpha
+    tags-sorter: alpha

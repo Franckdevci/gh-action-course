@@ -48,6 +48,12 @@ management:
     build:
       enabled: true
 
+springdoc:
+  api-docs:
+    enabled: false                          # SEC-I-02 : OpenAPI JSON ferme par defaut (dev-only, cf. application-dev.yml)
+  swagger-ui:
+    enabled: false                          # SEC-I-02 : Swagger UI ferme par defaut (dev-only, cf. application-dev.yml)
+
 ecotrack:
   features:
     export-csv: false
