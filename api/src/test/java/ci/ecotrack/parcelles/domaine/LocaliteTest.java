@@ -59,4 +59,41 @@ class LocaliteTest {
                 .isInstanceOf(DonneeParcelleInvalideException.class)
                 .hasMessageContaining("100");
     }
+
+    @Test
+    void should_rejeter_when_contient_null_byte() {
+        assertThatThrownBy(() -> new Localite("Bing\0erville"))
+                .isInstanceOf(DonneeParcelleInvalideException.class)
+                .hasMessageContaining("NUL");
+    }
+
+    @Test
+    void should_rejeter_when_contient_rtl_override() {
+        assertThatThrownBy(() -> new Localite("Bing‮erville"))
+                .isInstanceOf(DonneeParcelleInvalideException.class)
+                .hasMessageContaining("directionnel");
+    }
+
+    @Test
+    void should_rejeter_when_contient_lrm_isolate() {
+        assertThatThrownBy(() -> new Localite("Bing⁦erville"))
+                .isInstanceOf(DonneeParcelleInvalideException.class)
+                .hasMessageContaining("directionnel");
+    }
+
+    @Test
+    void should_rejeter_when_contient_caractere_controle() {
+        assertThatThrownBy(() -> new Localite("Bingerville"))
+                .isInstanceOf(DonneeParcelleInvalideException.class)
+                .hasMessageContaining("controle");
+    }
+
+    @Test
+    void should_accepter_when_contient_tab_ou_newline() {
+        Localite avec_tab = new Localite("Ligne 1\tLigne 2");
+        Localite avec_newline = new Localite("Ligne 1\nLigne 2");
+
+        assertThat(avec_tab.valeur()).contains("\t");
+        assertThat(avec_newline.valeur()).contains("\n");
+    }
 }
