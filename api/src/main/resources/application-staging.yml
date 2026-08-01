@@ -4,3 +4,11 @@ spring:
     username: ${ECOTRACK_DB_USER}
     password: ${ECOTRACK_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+
+# SEC-I-03 : Actuator sur port de management distinct, bindé loopback.
+# Le sidecar Prometheus (Phase 10) scrapera /actuator/health et /actuator/info
+# en reseau interne uniquement. Aucune exposition publique.
+management:
+  server:
+    port: 8081
+    address: 127.0.0.1
