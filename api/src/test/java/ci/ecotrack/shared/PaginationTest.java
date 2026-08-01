@@ -36,13 +36,13 @@ class PaginationTest {
     }
 
     @Test
-    void should_construire_when_page_borne_max_10000() {
-        assertThat(new Pagination(10_000, 50).page()).isEqualTo(10_000);
+    void should_construire_when_page_borne_max_200() {
+        assertThat(new Pagination(200, 50).page()).isEqualTo(200);
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {10_001, 100_000, Integer.MAX_VALUE})
-    void should_rejeter_when_page_superieure_a_10000(int page) {
+    @ValueSource(ints = {201, 10_000, 100_000, Integer.MAX_VALUE})
+    void should_rejeter_when_page_superieure_a_200(int page) {
         assertThatThrownBy(() -> new Pagination(page, 50))
                 .isInstanceOf(DonneeInvalideException.class)
                 .hasMessageContaining("page");
