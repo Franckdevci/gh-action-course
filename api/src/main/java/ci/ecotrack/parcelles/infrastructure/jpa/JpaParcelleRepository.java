@@ -2,9 +2,13 @@ package ci.ecotrack.parcelles.infrastructure.jpa;
 
 import ci.ecotrack.parcelles.application.CodeParcelleDejaUtiliseException;
 import ci.ecotrack.parcelles.application.ParcellesRepository;
+import ci.ecotrack.parcelles.domaine.CodeParcelle;
 import ci.ecotrack.parcelles.domaine.Parcelle;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 class JpaParcelleRepository implements ParcellesRepository {
@@ -24,5 +28,20 @@ class JpaParcelleRepository implements ParcellesRepository {
             throw new CodeParcelleDejaUtiliseException(
                     "Une parcelle avec ce code existe deja");
         }
+    }
+
+    @Override
+    public Optional<Parcelle> trouverParCode(CodeParcelle code) {
+        return springData.findByCode(code.valeur()).map(ParcelleMapper::versDomaine);
+    }
+
+    @Override
+    public Optional<Parcelle> trouverParId(UUID id) {
+        return springData.findById(id).map(ParcelleMapper::versDomaine);
+    }
+
+    @Override
+    public void sauvegarder(Parcelle parcelle) {
+        springData.saveAndFlush(ParcelleMapper.versEntite(parcelle));
     }
 }

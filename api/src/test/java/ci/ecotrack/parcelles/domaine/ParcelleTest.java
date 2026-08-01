@@ -1,6 +1,7 @@
 package ci.ecotrack.parcelles.domaine;
 
 import ci.ecotrack.shared.StatutParcelle;
+import ci.ecotrack.shared.TauxDeSurvie;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -79,5 +80,67 @@ class ParcelleTest {
         assertThat(p.localite()).isEqualTo(LOCALITE);
         assertThat(p.superficie()).isEqualTo(SUPERFICIE);
         assertThat(p.plantsInitiaux()).isEqualTo(PLANTS);
+    }
+
+    @Test
+    void should_avoir_dernier_taux_null_when_parcelle_creee() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+
+        assertThat(p.dernierTaux()).isNull();
+        assertThat(p.dateDernierReleve()).isNull();
+    }
+
+    @Test
+    void should_denormaliser_dernier_taux_when_premier_releve() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+        TauxDeSurvie taux = new TauxDeSurvie(new BigDecimal("0.85"));
+
+        p.enregistrerDernierReleve(taux, LocalDate.of(2026, 7, 20));
+
+        assertThat(p.dernierTaux()).isEqualTo(taux);
+        assertThat(p.dateDernierReleve()).isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
+    @Test
+    void should_ignorer_when_releve_antidate() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+        TauxDeSurvie recent = new TauxDeSurvie(new BigDecimal("0.85"));
+        p.enregistrerDernierReleve(recent, LocalDate.of(2026, 7, 20));
+        TauxDeSurvie ancien = new TauxDeSurvie(new BigDecimal("0.60"));
+
+        p.enregistrerDernierReleve(ancien, LocalDate.of(2026, 6, 30));
+
+        assertThat(p.dernierTaux()).isEqualTo(recent);
+        assertThat(p.dateDernierReleve()).isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
+    @Test
+    void should_ignorer_when_releve_meme_date() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+        TauxDeSurvie premier = new TauxDeSurvie(new BigDecimal("0.85"));
+        p.enregistrerDernierReleve(premier, LocalDate.of(2026, 7, 20));
+        TauxDeSurvie second = new TauxDeSurvie(new BigDecimal("0.75"));
+
+        p.enregistrerDernierReleve(second, LocalDate.of(2026, 7, 20));
+
+        assertThat(p.dernierTaux()).isEqualTo(premier);
+    }
+
+    @Test
+    void should_mettre_a_jour_when_releve_plus_recent() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+        p.enregistrerDernierReleve(
+                new TauxDeSurvie(new BigDecimal("0.85")), LocalDate.of(2026, 7, 20));
+        TauxDeSurvie plusRecent = new TauxDeSurvie(new BigDecimal("0.70"));
+
+        p.enregistrerDernierReleve(plusRecent, LocalDate.of(2026, 8, 15));
+
+        assertThat(p.dernierTaux()).isEqualTo(plusRecent);
+        assertThat(p.dateDernierReleve()).isEqualTo(LocalDate.of(2026, 8, 15));
     }
 }

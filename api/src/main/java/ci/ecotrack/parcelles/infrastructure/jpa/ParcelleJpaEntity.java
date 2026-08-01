@@ -35,6 +35,12 @@ class ParcelleJpaEntity {
     @Column(name = "statut", nullable = false, length = 20)
     private String statut;
 
+    @Column(name = "dernier_taux", precision = 5, scale = 4)
+    private BigDecimal dernierTaux;
+
+    @Column(name = "date_dernier_releve")
+    private LocalDate dateDernierReleve;
+
     protected ParcelleJpaEntity() {
     }
 
@@ -44,7 +50,9 @@ class ParcelleJpaEntity {
                       BigDecimal superficie,
                       Integer plantsInitiaux,
                       LocalDate datePlantation,
-                      String statut) {
+                      String statut,
+                      BigDecimal dernierTaux,
+                      LocalDate dateDernierReleve) {
         this.id = id;
         this.code = code;
         this.localite = localite;
@@ -52,6 +60,8 @@ class ParcelleJpaEntity {
         this.plantsInitiaux = plantsInitiaux;
         this.datePlantation = datePlantation;
         this.statut = statut;
+        this.dernierTaux = dernierTaux;
+        this.dateDernierReleve = dateDernierReleve;
     }
 
     UUID getId() { return id; }
@@ -61,4 +71,6 @@ class ParcelleJpaEntity {
     Integer getPlantsInitiaux() { return plantsInitiaux; }
     LocalDate getDatePlantation() { return datePlantation; }
     String getStatut() { return statut; }
+    BigDecimal getDernierTaux() { return dernierTaux; }
+    LocalDate getDateDernierReleve() { return dateDernierReleve; }
 }
