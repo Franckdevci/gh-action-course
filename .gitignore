@@ -1,16 +1,66 @@
+# OS
 .DS_Store
-node_modules
-.gitignore
-.vscode
-.agent
+._*
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# Editeurs / IDE
+.vscode/
+.idea/
+.fleet/
+.zed/
+*.iml
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
+
+# Fichiers temporaires / sauvegardes
+*.bak
+*.orig
+*.tmp
+tmp/
+temp/
+
+# Env / secrets
 .env
-.md
+.env.local
+.env.*.local
+.agent
+*.pem
+*.key
+*.p12
+*.jks
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Logs
+*.log
+logs/
+hs_err_pid*.log
+replay_pid*.log
 
 # Java / Maven
 target/
-*.iml
-.idea/
 HELP.md
+dependency-reduced-pom.xml
+.mvn/wrapper/maven-wrapper.jar
 
-# Gradle / IDE artefacts
+# Node.js / Next.js (front a venir)
+node_modules/
+.next/
+out/
+dist/
 build/
+.turbo/
+coverage/
+.nyc_output/
+
+# Claude Code — etat machine-local (les agents sous .claude/agents/ sont versionnes)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
