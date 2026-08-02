@@ -8,6 +8,7 @@ public record TauxDeSurvie(BigDecimal valeur) {
     private static final int ECHELLE_MAX = 4;
     private static final BigDecimal MIN = BigDecimal.ZERO;
     private static final BigDecimal MAX = BigDecimal.ONE;
+    private static final BigDecimal SEUIL_CRITIQUE = new BigDecimal("0.60");
 
     public TauxDeSurvie {
         if (valeur == null) {
@@ -22,6 +23,10 @@ public record TauxDeSurvie(BigDecimal valeur) {
             throw new DonneeInvalideException(
                     "Le taux de survie doit etre compris entre 0 et 1");
         }
+    }
+
+    public boolean estCritique() {
+        return valeur.compareTo(SEUIL_CRITIQUE) < 0;
     }
 
     public static TauxDeSurvie calculer(int plantsVivants, int plantsInitiaux) {

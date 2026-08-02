@@ -7,7 +7,9 @@ import ci.ecotrack.parcelles.domaine.CodeParcelle;
 import ci.ecotrack.parcelles.domaine.Localite;
 import ci.ecotrack.parcelles.domaine.NombrePlants;
 import ci.ecotrack.parcelles.domaine.Parcelle;
+import ci.ecotrack.parcelles.StatutChange;
 import ci.ecotrack.parcelles.domaine.Superficie;
+import ci.ecotrack.shared.StatutParcelle;
 import ci.ecotrack.shared.TauxDeSurvie;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -72,6 +74,20 @@ class ParcellesServiceTest {
 
         verify(repository, times(1)).sauvegarder(parcelle);
         assertThat(parcelle.dernierTaux()).isEqualTo(taux);
+    }
+
+    @Test
+    void should_remonter_le_StatutChange_when_releve_declenche_alerte() {
+        Parcelle parcelle = uneParcelle("PRC-2026-042");
+        when(repository.trouverParId(parcelle.id().valeur())).thenReturn(Optional.of(parcelle));
+
+        Optional<StatutChange> change = service.mettreAJourDernierReleve(
+                parcelle.id().valeur(),
+                new TauxDeSurvie(new BigDecimal("0.55")),
+                LocalDate.of(2026, 7, 20));
+
+        assertThat(change).isPresent();
+        assertThat(change.get().nouveauStatut()).isEqualTo(StatutParcelle.EN_ALERTE);
     }
 
     private Parcelle uneParcelle(String code) {
