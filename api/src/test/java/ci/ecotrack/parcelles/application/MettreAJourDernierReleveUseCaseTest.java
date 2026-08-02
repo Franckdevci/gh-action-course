@@ -4,7 +4,9 @@ import ci.ecotrack.parcelles.domaine.CodeParcelle;
 import ci.ecotrack.parcelles.domaine.Localite;
 import ci.ecotrack.parcelles.domaine.NombrePlants;
 import ci.ecotrack.parcelles.domaine.Parcelle;
+import ci.ecotrack.parcelles.StatutChange;
 import ci.ecotrack.parcelles.domaine.Superficie;
+import ci.ecotrack.shared.StatutParcelle;
 import ci.ecotrack.shared.TauxDeSurvie;
 import org.junit.jupiter.api.Test;
 
@@ -47,6 +49,26 @@ class MettreAJourDernierReleveUseCaseTest {
         Parcelle relue = repository.trouverParId(parcelle.id().valeur()).orElseThrow();
         assertThat(relue.dernierTaux()).isEqualTo(taux);
         assertThat(relue.dateDernierReleve()).isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
+    @Test
+    void should_remonter_le_StatutChange_when_releve_declenche_alerte() {
+        Parcelle parcelle = Parcelle.creer(
+                new CodeParcelle("PRC-2026-042"),
+                new Localite("Bingerville"),
+                new Superficie(new BigDecimal("12.50")),
+                new NombrePlants(2000),
+                LocalDate.of(2026, 6, 15),
+                HORLOGE);
+        repository.enregistrer(parcelle);
+
+        Optional<StatutChange> change = useCase.executer(
+                parcelle.id().valeur(),
+                new TauxDeSurvie(new BigDecimal("0.55")),
+                LocalDate.of(2026, 7, 20));
+
+        assertThat(change).isPresent();
+        assertThat(change.get().nouveauStatut()).isEqualTo(StatutParcelle.EN_ALERTE);
     }
 
     @Test

@@ -1,10 +1,12 @@
 package ci.ecotrack.parcelles.domaine;
 
+import ci.ecotrack.parcelles.StatutChange;
 import ci.ecotrack.shared.StatutParcelle;
 import ci.ecotrack.shared.TauxDeSurvie;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Optional;
 
 public class Parcelle {
 
@@ -76,7 +78,7 @@ public class Parcelle {
                 datePlantation, statut, dernierTaux, dateDernierReleve);
     }
 
-    public void enregistrerDernierReleve(TauxDeSurvie taux, LocalDate dateObservation) {
+    public Optional<StatutChange> enregistrerDernierReleve(TauxDeSurvie taux, LocalDate dateObservation) {
         if (taux == null) {
             throw new DonneeParcelleInvalideException("Le taux de survie est requis");
         }
@@ -84,10 +86,16 @@ public class Parcelle {
             throw new DonneeParcelleInvalideException("La date d'observation est requise");
         }
         if (this.dateDernierReleve != null && !dateObservation.isAfter(this.dateDernierReleve)) {
-            return;
+            return Optional.empty();
         }
         this.dernierTaux = taux;
         this.dateDernierReleve = dateObservation;
+        StatutParcelle ancien = this.statut;
+        this.statut = taux.estCritique() ? StatutParcelle.EN_ALERTE : StatutParcelle.EN_SUIVI;
+        if (this.statut == ancien) {
+            return Optional.empty();
+        }
+        return Optional.of(new StatutChange(ancien, this.statut, taux, dateObservation));
     }
 
     public ParcelleId id() { return id; }

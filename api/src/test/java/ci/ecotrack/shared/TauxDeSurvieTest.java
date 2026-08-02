@@ -12,6 +12,28 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TauxDeSurvieTest {
 
     @Test
+    void should_estCritique_when_taux_est_5995_pourcent() {
+        TauxDeSurvie t = new TauxDeSurvie(new BigDecimal("0.5995"));
+
+        assertThat(t.estCritique()).isTrue();
+    }
+
+    @Test
+    void should_ne_pas_etre_critique_when_taux_exactement_60_pourcent() {
+        TauxDeSurvie t = new TauxDeSurvie(new BigDecimal("0.60"));
+
+        assertThat(t.estCritique()).isFalse();
+    }
+
+    @Test
+    void should_ne_pas_etre_critique_when_taux_exactement_60_pourcent_ecrit_avec_scale_different() {
+        // 0.60 == 0.6000 en compareTo, jamais en equals
+        TauxDeSurvie t = new TauxDeSurvie(new BigDecimal("0.6000"));
+
+        assertThat(t.estCritique()).isFalse();
+    }
+
+    @Test
     void should_construire_when_scale_4() {
         TauxDeSurvie t = new TauxDeSurvie(new BigDecimal("0.5995"));
 

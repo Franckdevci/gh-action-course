@@ -6,6 +6,7 @@ import ci.ecotrack.parcelles.application.MettreAJourDernierReleveUseCase;
 import ci.ecotrack.parcelles.application.ParcellesRepository;
 import ci.ecotrack.parcelles.domaine.CodeParcelle;
 import ci.ecotrack.parcelles.domaine.Parcelle;
+import ci.ecotrack.parcelles.StatutChange;
 import ci.ecotrack.shared.TauxDeSurvie;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,9 +45,9 @@ public class ParcellesService {
     }
 
     @Transactional
-    public void mettreAJourDernierReleve(UUID parcelleId,
-                                         TauxDeSurvie taux,
-                                         LocalDate dateObservation) {
-        mettreAJourDernierReleveUseCase.executer(parcelleId, taux, dateObservation);
+    public Optional<StatutChange> mettreAJourDernierReleve(UUID parcelleId,
+                                                            TauxDeSurvie taux,
+                                                            LocalDate dateObservation) {
+        return mettreAJourDernierReleveUseCase.executer(parcelleId, taux, dateObservation);
     }
 }

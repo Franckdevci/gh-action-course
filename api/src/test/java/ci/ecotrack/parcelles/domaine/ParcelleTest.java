@@ -1,5 +1,6 @@
 package ci.ecotrack.parcelles.domaine;
 
+import ci.ecotrack.parcelles.StatutChange;
 import ci.ecotrack.shared.StatutParcelle;
 import ci.ecotrack.shared.TauxDeSurvie;
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -142,5 +144,63 @@ class ParcelleTest {
 
         assertThat(p.dernierTaux()).isEqualTo(plusRecent);
         assertThat(p.dateDernierReleve()).isEqualTo(LocalDate.of(2026, 8, 15));
+    }
+
+    @Test
+    void should_passer_en_alerte_when_premier_releve_franchit_le_seuil() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+        TauxDeSurvie critique = new TauxDeSurvie(new BigDecimal("0.5500"));
+
+        Optional<StatutChange> change = p.enregistrerDernierReleve(critique, LocalDate.of(2026, 7, 20));
+
+        assertThat(p.statut()).isEqualTo(StatutParcelle.EN_ALERTE);
+        assertThat(change).isPresent();
+        assertThat(change.get().ancienStatut()).isEqualTo(StatutParcelle.EN_SUIVI);
+        assertThat(change.get().nouveauStatut()).isEqualTo(StatutParcelle.EN_ALERTE);
+        assertThat(change.get().tauxDeclencheur()).isEqualTo(critique);
+        assertThat(change.get().dateDeclencheur()).isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
+    @Test
+    void should_rester_en_suivi_when_premier_releve_ne_franchit_pas_le_seuil() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+
+        Optional<StatutChange> change = p.enregistrerDernierReleve(
+                new TauxDeSurvie(new BigDecimal("0.85")), LocalDate.of(2026, 7, 20));
+
+        assertThat(p.statut()).isEqualTo(StatutParcelle.EN_SUIVI);
+        assertThat(change).isEmpty();
+    }
+
+    @Test
+    void should_repasser_en_suivi_when_releve_recent_repasse_au_dessus_du_seuil() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+        p.enregistrerDernierReleve(new TauxDeSurvie(new BigDecimal("0.5500")),
+                LocalDate.of(2026, 7, 20));
+
+        Optional<StatutChange> retablissement = p.enregistrerDernierReleve(
+                new TauxDeSurvie(new BigDecimal("0.7200")), LocalDate.of(2026, 8, 20));
+
+        assertThat(p.statut()).isEqualTo(StatutParcelle.EN_SUIVI);
+        assertThat(retablissement).isPresent();
+        assertThat(retablissement.get().ancienStatut()).isEqualTo(StatutParcelle.EN_ALERTE);
+        assertThat(retablissement.get().nouveauStatut()).isEqualTo(StatutParcelle.EN_SUIVI);
+    }
+
+    @Test
+    void should_ne_pas_changer_statut_when_releve_antidate_meme_critique() {
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+        p.enregistrerDernierReleve(new TauxDeSurvie(new BigDecimal("0.85")),
+                LocalDate.of(2026, 7, 20));
+
+        Optional<StatutChange> change = p.enregistrerDernierReleve(
+                new TauxDeSurvie(new BigDecimal("0.45")), LocalDate.of(2026, 6, 20));
+
+        assertThat(p.statut()).isEqualTo(StatutParcelle.EN_SUIVI);
+        assertThat(change).isEmpty();
     }
 }
