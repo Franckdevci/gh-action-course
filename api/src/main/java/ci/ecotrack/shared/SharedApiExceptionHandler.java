@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -35,6 +36,18 @@ class SharedApiExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND, "Ressource introuvable");
         pd.setTitle("Non trouve");
+        return pd;
+    }
+
+    // SEC-FAIB-02 (audit EX-F-07) : sans handler dedie, Spring propage le message par
+    // defaut qui contient le type Java attendu et la valeur recue → fuite EX-NF-05.
+    // On repond 400 neutre avec le nom du parametre uniquement, jamais la valeur.
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ProblemDetail traiterParametreMalType(MethodArgumentTypeMismatchException e) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Le parametre '" + e.getName() + "' est invalide");
+        pd.setTitle("Requete invalide");
         return pd;
     }
 

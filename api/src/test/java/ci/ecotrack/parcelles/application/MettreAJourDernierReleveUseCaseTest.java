@@ -108,5 +108,10 @@ class MettreAJourDernierReleveUseCaseTest {
             parcelles.removeIf(p -> p.id().valeur().equals(parcelle.id().valeur()));
             parcelles.add(parcelle);
         }
+
+        @Override
+        public PageParcelles listerAlertesPuisCode(ci.ecotrack.shared.Pagination pagination) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

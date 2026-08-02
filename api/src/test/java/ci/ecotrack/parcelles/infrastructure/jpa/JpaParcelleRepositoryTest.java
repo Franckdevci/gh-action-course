@@ -7,7 +7,9 @@ import ci.ecotrack.parcelles.domaine.Localite;
 import ci.ecotrack.parcelles.domaine.NombrePlants;
 import ci.ecotrack.parcelles.domaine.Parcelle;
 import ci.ecotrack.parcelles.domaine.Superficie;
+import ci.ecotrack.shared.Pagination;
 import ci.ecotrack.shared.StatutParcelle;
+import ci.ecotrack.shared.TauxDeSurvie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -103,6 +105,73 @@ class JpaParcelleRepositoryTest {
         var relue = repository.trouverParId(parcelle.id().valeur()).orElseThrow();
         assertThat(relue.dernierTaux().valeur()).isEqualByComparingTo("0.85");
         assertThat(relue.dateDernierReleve()).isEqualTo(LocalDate.of(2026, 7, 20));
+    }
+
+    @Test
+    void should_lister_en_alerte_avant_en_suivi_puis_par_code() {
+        Parcelle p1 = uneParcelle("PRC-2026-100");
+        Parcelle p2 = uneParcelle("PRC-2026-050");
+        Parcelle p3 = uneParcelle("PRC-2026-200");
+        repository.enregistrer(p1);
+        repository.enregistrer(p2);
+        repository.enregistrer(p3);
+        // p2 passe EN_ALERTE
+        p2.enregistrerDernierReleve(new TauxDeSurvie(new BigDecimal("0.5000")),
+                LocalDate.of(2026, 7, 20));
+        repository.sauvegarder(p2);
+
+        var page = repository.listerAlertesPuisCode(new Pagination(0, 50));
+
+        assertThat(page.total()).isEqualTo(3);
+        assertThat(page.contenu()).extracting(p -> p.code().valeur())
+                .containsExactly("PRC-2026-050", "PRC-2026-100", "PRC-2026-200");
+        assertThat(page.contenu().get(0).statut()).isEqualTo(StatutParcelle.EN_ALERTE);
+    }
+
+    @Test
+    void should_retourner_page_vide_when_parc_vide() {
+        var page = repository.listerAlertesPuisCode(new Pagination(0, 50));
+
+        assertThat(page.total()).isEqualTo(0);
+        assertThat(page.contenu()).isEmpty();
+    }
+
+    @Test
+    void should_retourner_contenu_vide_when_page_au_dela_de_la_derniere() {
+        repository.enregistrer(uneParcelle("PRC-2026-001"));
+        repository.enregistrer(uneParcelle("PRC-2026-002"));
+
+        var page = repository.listerAlertesPuisCode(new Pagination(5, 50));
+
+        assertThat(page.total()).isEqualTo(2);
+        assertThat(page.contenu()).isEmpty();
+    }
+
+    @Test
+    void should_paginer_when_plus_de_parcelles_que_size() {
+        for (int i = 1; i <= 5; i++) {
+            repository.enregistrer(uneParcelle(String.format("PRC-2026-%03d", i)));
+        }
+
+        var page0 = repository.listerAlertesPuisCode(new Pagination(0, 2));
+        var page1 = repository.listerAlertesPuisCode(new Pagination(1, 2));
+        var page2 = repository.listerAlertesPuisCode(new Pagination(2, 2));
+
+        assertThat(page0.total()).isEqualTo(5);
+        assertThat(page0.contenu()).hasSize(2);
+        assertThat(page1.contenu()).hasSize(2);
+        assertThat(page2.contenu()).hasSize(1);
+    }
+
+    @Test
+    void should_conserver_dernierTaux_null_when_parcelle_sans_releve() {
+        repository.enregistrer(uneParcelle("PRC-2026-500"));
+
+        var page = repository.listerAlertesPuisCode(new Pagination(0, 50));
+
+        assertThat(page.contenu()).hasSize(1);
+        assertThat(page.contenu().get(0).dernierTaux()).isNull();
+        assertThat(page.contenu().get(0).dateDernierReleve()).isNull();
     }
 
     private Parcelle uneParcelle(String code) {

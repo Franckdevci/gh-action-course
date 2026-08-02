@@ -3,11 +3,14 @@ package ci.ecotrack.parcelles.infrastructure.rest;
 import ci.ecotrack.parcelles.ParcellesService;
 import ci.ecotrack.parcelles.application.CodeParcelleDejaUtiliseException;
 import ci.ecotrack.parcelles.application.CreerParcelleCommande;
+import ci.ecotrack.parcelles.application.ParcellesRepository;
 import ci.ecotrack.parcelles.domaine.CodeParcelle;
 import ci.ecotrack.parcelles.domaine.Localite;
 import ci.ecotrack.parcelles.domaine.NombrePlants;
 import ci.ecotrack.parcelles.domaine.Parcelle;
 import ci.ecotrack.parcelles.domaine.Superficie;
+import ci.ecotrack.shared.Pagination;
+import ci.ecotrack.shared.TauxDeSurvie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -20,10 +23,12 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -153,6 +158,63 @@ class ParcellesControllerTest {
     }
 
     @Test
+    void should_200_when_liste_paginee_par_defaut() throws Exception {
+        Parcelle enAlerte = enAlerteAvecTaux("PRC-2026-050", "0.5000", LocalDate.of(2026, 7, 22));
+        Parcelle enSuivi = uneParcelle("PRC-2026-100");
+        when(parcellesService.consulter(any(Pagination.class)))
+                .thenReturn(new ParcellesRepository.PageParcelles(List.of(enAlerte, enSuivi), 2));
+
+        mvc.perform(get("/api/v1/parcelles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenu[0].code").value("PRC-2026-050"))
+                .andExpect(jsonPath("$.contenu[0].statut").value("EN_ALERTE"))
+                .andExpect(jsonPath("$.contenu[0].dernierTaux").value("50.0"))
+                .andExpect(jsonPath("$.contenu[1].code").value("PRC-2026-100"))
+                .andExpect(jsonPath("$.contenu[1].statut").value("EN_SUIVI"))
+                .andExpect(jsonPath("$.contenu[1].dernierTaux").isEmpty())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.taille").value(50))
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    void should_200_avec_contenu_vide_when_parc_vide() throws Exception {
+        when(parcellesService.consulter(any(Pagination.class)))
+                .thenReturn(new ParcellesRepository.PageParcelles(List.of(), 0));
+
+        mvc.perform(get("/api/v1/parcelles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenu").isArray())
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.totalPages").value(0));
+    }
+
+    @Test
+    void should_200_avec_contenu_vide_when_page_au_dela_de_la_derniere() throws Exception {
+        when(parcellesService.consulter(any(Pagination.class)))
+                .thenReturn(new ParcellesRepository.PageParcelles(List.of(), 120));
+
+        mvc.perform(get("/api/v1/parcelles").param("page", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenu").isArray())
+                .andExpect(jsonPath("$.total").value(120));
+    }
+
+    @Test
+    void should_400_when_size_hors_bornes_liste() throws Exception {
+        mvc.perform(get("/api/v1/parcelles").param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
+    void should_400_when_page_negative_liste() throws Exception {
+        mvc.perform(get("/api/v1/parcelles").param("page", "-1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void should_ne_pas_refleter_input_when_code_contient_script() throws Exception {
         mvc.perform(post("/api/v1/parcelles")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -167,5 +229,21 @@ class ParcellesControllerTest {
                         org.hamcrest.Matchers.containsString("<script>"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("alert(1)"))));
+    }
+
+    private Parcelle uneParcelle(String code) {
+        return Parcelle.creer(
+                new CodeParcelle(code),
+                new Localite("Bingerville"),
+                new Superficie(new BigDecimal("12.50")),
+                new NombrePlants(2000),
+                LocalDate.of(2026, 6, 15),
+                HORLOGE);
+    }
+
+    private Parcelle enAlerteAvecTaux(String code, String taux, LocalDate dateReleve) {
+        Parcelle p = uneParcelle(code);
+        p.enregistrerDernierReleve(new TauxDeSurvie(new BigDecimal(taux)), dateReleve);
+        return p;
     }
 }
