@@ -184,22 +184,69 @@ réalise EX-F-07 R1 au niveau du modèle et non par convention.
 
 ### 3.3 La règle de statut (cœur métier, EX-F-03)
 
-```java
-// domaine pur, testable sans Spring, sans base
-public final class RegleStatutAlerte {
-    public static StatutParcelle evaluer(List<Releve> releves) {
-        return releves.stream()
-            .max(comparing(Releve::dateObservation))   // DERNIER PAR DATE, pas par saisie
-            .map(r -> r.taux().estCritique() ? EN_ALERTE : EN_SUIVI)
-            .orElse(EN_SUIVI);                          // aucun relevé → EN_SUIVI
-    }
-}
-```
+Le SDD initial proposait un service de domaine `RegleStatutAlerte.evaluer(List<Releve>)`
+qui recalculait le statut à partir de tout l'historique à chaque écriture.
+Cette conception a été **remplacée** au profit d'une **projection incrémentale**
+sur l'agrégat `Parcelle`, alignée avec **ADR-005** (dénormalisation dans la
+même transaction que l'enregistrement du relevé) et formalisée par **ADR-010**
+(hypothèse d'irrévocabilité des relevés en v1).
 
-Trois exigences réalisées en cinq lignes, et c'est voulu : le tri par
-`dateObservation` réalise le scénario du relevé antidaté ; `estCritique()`
-(strictement inférieur, valeur exacte) réalise les deux cas limites ;
-`orElse(EN_SUIVI)` réalise le cas « parcelle sans relevé » (EX-F-05 R4).
+**Deux responsabilités séparées, deux emplacements de code :**
+
+- La **décision** « ce taux est-il critique ? » vit dans le VO `TauxDeSurvie`,
+  comme source unique du seuil :
+
+  ```java
+  // ci.ecotrack.shared.TauxDeSurvie
+  public boolean estCritique() {
+      return valeur.compareTo(SEUIL_CRITIQUE) < 0;   // 0.60 strict, BigDecimal exact
+  }
+  ```
+
+- La **sélection** du relevé qui fait foi vit dans l'agrégat `Parcelle`, sous
+  forme de projection incrémentale : à chaque enregistrement d'un relevé, la
+  méthode compare sa `dateObservation` à celle du dernier relevé mémorisé et
+  ne met à jour le statut que si le nouveau devient effectivement le plus
+  récent.
+
+  ```java
+  // ci.ecotrack.parcelles.domaine.Parcelle
+  public Optional<StatutChange> enregistrerDernierReleve(TauxDeSurvie taux,
+                                                         LocalDate dateObservation) {
+      if (this.dateDernierReleve != null
+              && !dateObservation.isAfter(this.dateDernierReleve)) {
+          return Optional.empty();                             // antidaté, on n'écrit pas
+      }
+      this.dernierTaux = taux;
+      this.dateDernierReleve = dateObservation;
+      StatutParcelle ancien = this.statut;
+      this.statut = taux.estCritique()                          // décision déléguée au VO
+              ? StatutParcelle.EN_ALERTE
+              : StatutParcelle.EN_SUIVI;
+      return this.statut == ancien
+              ? Optional.empty()
+              : Optional.of(new StatutChange(ancien, this.statut, taux, dateObservation));
+  }
+  ```
+
+**Les quatre exigences (SDD §7.2 non-négociables) sont réalisées ainsi :**
+
+- Filtre « antidaté » (`!dateObservation.isAfter(dateDernierReleve)`) → un
+  relevé daté avant le dernier connu n'écrit rien, statut inchangé.
+- `taux.estCritique()` → le seuil est vérifié dans le seul et unique endroit
+  où il est défini (`TauxDeSurvie.SEUIL_CRITIQUE`).
+- Le statut initial `EN_SUIVI` est posé à la construction de la parcelle
+  (`Parcelle.creer`), donc le cas « aucun relevé » ne dépend pas d'une règle
+  de calcul mais d'un invariant de création.
+
+**Pourquoi pas un service `evaluer(List<Releve>)` ?** Le recharger à chaque
+écriture demanderait de relire tout l'historique du relevé, ce qui
+annulerait le bénéfice de la dénormalisation portée par ADR-005 (colonnes
+`statut`, `dernier_taux`, `date_dernier_releve` sur la ligne parcelle,
+alimentées par cette projection). Le débat est tranché dans **ADR-010**, qui
+documente aussi le déclencheur de reconsidération (toute suppression ou
+correction rétroactive d'un relevé invaliderait la projection et imposerait
+un recalcul complet).
 
 ### 3.4 Persistance et mapping
 
