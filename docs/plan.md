@@ -1,6 +1,6 @@
 # Plan projet — EcoTrack API
 
-**Dernière mise à jour** : 2026-08-02
+**Dernière mise à jour** : 2026-08-02 (post EX-F-07)
 **Sources de vérité** : `docs/srs.md` v1.3, `docs/sdd.md` v1.2, `docs/adr/`, `CLAUDE.md`
 
 Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conception, les ADR les décisions structurantes. Ce plan agrège leur état d'avancement, ne le remplace pas.
@@ -9,7 +9,7 @@ Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conc
 
 ## 1. Vue d'ensemble
 
-**Phase courante** : socle sécurité stabilisé (Waves 1/2/3), **EX-F-01, EX-F-02 et EX-F-03 livrés**. Prêt à attaquer **EX-F-07 (module `alertes`)** — chemin critique pour tenir EX-NF-03.
+**Phase courante** : socle sécurité stabilisé (Waves 1/2/3), **EX-F-01, EX-F-02, EX-F-03 et EX-F-07 livrés**. EX-NF-03 tenue en pratique (event consommé + registry `event_publication` complété). Reste EX-F-05 (liste paginée), EX-F-06 (fiche parcelle + historique), puis EX-F-04 (export CSV).
 
 **Verrous en place** :
 - SRS v1.3 conforme IEEE 830 / ISO 29148, aucune ambiguïté résiduelle.
@@ -17,8 +17,8 @@ Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conc
 - Branch protection `main` : PR obligatoire, checks requis (`mvn verify (api)`, `trivy fs scan`, `SonarCloud Code Analysis`).
 - 6 règles ArchUnit maison verrouillant les invariants CLAUDE.md.
 - Auto-delete des branches actives.
-- **190 tests verts** sur `main`, ArchitectureTest + ArchitectureConventionsTest inclus.
-- Événement de domaine `StatutParcelleChange` émis à chaque bascule de statut (jamais consommé pour l'instant — voir EX-F-07).
+- **210 tests verts** sur la branche EX-F-07, ArchitectureTest + ArchitectureConventionsTest inclus.
+- Événement `StatutParcelleChange` émis + consommé par `AlertesService.surStatutParcelleChange` (`@ApplicationModuleListener`), durabilité assurée par Spring Modulith `event_publication` registry.
 
 ---
 
@@ -32,7 +32,7 @@ Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conc
 | EX-F-04 | Exporter en CSV | 🔒 Feature flag off | — | Bloqué SEC-B-05 (adapter CSV à écrire au moment de l'implémentation) |
 | EX-F-05 | Lister les parcelles paginées | ⏳ À faire | — | VO `Pagination` prêt (`PAGE_MAX=200`, `SIZE_MAX=100`) mais orphelin ; à câbler sur `GET /parcelles` |
 | EX-F-06 | Fiche parcelle (détail + historique) | ⏳ À faire | — | Dépend de EX-F-02 (livré). Deux endpoints `GET /parcelles/{code}` + `GET /parcelles/{code}/releves` |
-| EX-F-07 | Journal des alertes | ⏳ **Prochain chantier** | — | Module `alertes/` = squelette `package-info` seul. À faire : agrégat `EntreeJournal`, `@ApplicationModuleListener` sur `StatutParcelleChange`, endpoint `GET /alertes`, migration Flyway. Débloque EX-NF-03. |
+| EX-F-07 | Journal des alertes | ✅ Livré | (cette PR) | Agrégat `EntreeJournal` immuable, `AlertesService` avec `@ApplicationModuleListener` sur `StatutParcelleChange`, endpoint `GET /alertes?page&size`, migration V5, 22 tests. Débloque EX-NF-03. |
 
 ---
 
@@ -42,7 +42,7 @@ Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conc
 |----|---------|--------|--------|
 | EX-NF-01 | Performance P95 < 500 ms | 🟡 Partiel | Dénormalisation en place (ADR-005), index `releve(parcelle_id, date_observation DESC)`. Test de charge k6 non écrit. Non testable tant qu'EX-F-05/06 absents. |
 | EX-NF-02 | Zéro coupure (expand/contract) | 🟡 Partiel | Migrations V1-V4 additives ; sondes readiness/liveness activées (Wave 3). Test rolling update non écrit. |
-| EX-NF-03 | Aucune perte d'alerte | 🟡 Partiel — **non tenu en pratique** | Event émis dans la transaction (PR #45), table `event_publication` créée (V1). **Aucun consommateur** ⇒ garantie purement documentaire jusqu'à EX-F-07. |
+| EX-NF-03 | Aucune perte d'alerte | ✅ Livré | Event émis dans la transaction (PR #45), consommé par `AlertesService.surStatutParcelleChange` (`@ApplicationModuleListener` → `@Async` + `@Transactional(REQUIRES_NEW)`). Registry `event_publication` complété à chaque bascule, vérifié par `JournalisationEndToEndTest`. |
 | EX-NF-04 | Version exposée | 🟡 Partiel | `/actuator/info` avec `management.info.build.enabled=true`. Header web à ajouter avec front. |
 | EX-NF-05 | RFC 7807 sans détails internes | ✅ Livré | Waves 1/2 + `SharedApiExceptionHandler` (`Exception.class`, `DataIntegrityViolationException`, `NoResourceFoundException`), `ParcellesRestHardeningTest` (4 cas non-reflection) |
 | EX-NF-06 | Ergonomie / accessibilité | ⏳ Front absent | Attend module `web/` Next.js |
@@ -58,7 +58,7 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 |----|-------|--------|-------|
 | ADR-001 | Spring Modulith 3 modules | Accepté | Vérifié par `ApplicationModules.verify()` ; module `alertes` déclaré mais vide |
 | ADR-002 | Persistance JPA + Flyway | Accepté | `ddl-auto=validate` en place, 4 migrations additives |
-| ADR-003 | Events `releves → alertes` | Accepté | Émetteur en place (PR #45), consommateur attendu EX-F-07 |
+| ADR-003 | Events `releves → alertes` | Accepté | Émetteur + consommateur en place (EX-F-07). `event_publication` registry actif. |
 | ADR-004 | Feature flag export CSV | Accepté | Config `ecotrack.features.export-csv=false` — orpheline tant qu'EX-F-04 absent |
 | ADR-005 | Dénormalisation dernier relevé | Accepté | Livré, complété par ADR-010 |
 | ADR-006 | Plafonds export CSV | Accepté | 10 000 lignes max, actif à l'impl EX-F-04 |
@@ -112,6 +112,8 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 | #45 | **EX-F-03** règle de statut + event `StatutParcelleChange` | 2026-08-02 |
 | #46 | chore(ci) debug claude-review (`show_full_output`) | 2026-08-02 |
 | #47 | chore check-in slash commands `.claude/commands/*.md` | 2026-08-02 |
+| #48 | refactor statut projeté incrémentalement (ADR-010) | 2026-08-02 |
+| (cette PR) | **EX-F-07** module `alertes` : `EntreeJournal` + listener + endpoint `GET /alertes` | — |
 
 ---
 
@@ -119,7 +121,7 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 
 | PR | Sujet | Statut |
 |----|-------|--------|
-| #48 | refactor: statut projeté incrémentalement, tests sur le chemin réel (supprime `RegleStatutAlerte` mort + ajoute ADR-010) | En review |
+| (à ouvrir) | **EX-F-07** module `alertes` : `EntreeJournal` + listener `@ApplicationModuleListener` + endpoint `GET /alertes` + migration V5 | En review |
 
 ---
 
@@ -153,8 +155,18 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 | `@Pattern` sur `@PathVariable code` | Audit PR #29 SEC-FAIB-01 | Trivial, à faire au premier passage sur `RelevesController` |
 | Historique relevés paginé (EX-F-06) | Anti-pattern SEC-B-03 (revue v2 §V-06) | À couvrir dans EX-F-06 avec keyset pagination |
 | Endpoint `POST /admin/events/{id}/retry` | ADR-008 | À implémenter avec EX-F-07 (flag `ecotrack.admin.enabled` déjà en place) |
-| Publications non traitées dans `event_publication` | EX-F-03 livré sans consommateur | Résolu par EX-F-07 dès qu'`@ApplicationModuleListener` est en place |
-| Log INFO au boot rappelant `retention.journal-alertes-mois` | SDD §3.5 | Mineur, à ajouter avec EX-F-07 |
+| Publications non traitées dans `event_publication` | EX-F-03 livré sans consommateur | ✅ Résolu par EX-F-07 (listener en place, publications complétées à chaque bascule) |
+| Log INFO au boot rappelant `retention.journal-alertes-mois` | SDD §3.5 | Mineur, à ajouter avec le job de purge (bloqué par CLARIF-01) |
+| **SEC-ELEV-01 hardening prod** — REVOKE UPDATE/DELETE sur `alerte` + rôle `ecotrack_janitor` distinct pour la purge | Audit sécu EX-F-07 (2026-08-02) | Défendu en-app par `@Immutable` + `updatable=false`. Trigger PG à installer Phase 10 Ingress (dépend rôles PG documentés dans ADR-007) |
+| SEC-MOY-01 — `PageAlertesResponse.totalPages` en `int`, borner à `PAGE_MAX+1` ou passer en `long` + champ `hasMore` | Audit sécu EX-F-07 | Non exploitable v1 (5 000 parcelles), mais divergence contrat/réalité si le volume monte |
+| SEC-FAIB-01 — décider exposition `id` UUID interne dans `AlerteResponse` | Audit sécu EX-F-07 | Aucun consommateur v1. Soit supprimer, soit documenter `@Schema(description="opaque, sans usage client v1")` |
+| SEC-FAIB-02 — handler `MethodArgumentTypeMismatchException` dans `SharedApiExceptionHandler` (retour ProblemDetail neutre) | Audit sécu EX-F-07 | Impact transverse à tous les endpoints paginés. PR dédiée + test `should_400_neutre_when_page_non_numerique` |
+| SEC-INFO-01 — test `should_200_when_page_egale_200` (borne haute inclusive) sur `GET /alertes` | Audit sécu EX-F-07 | Trivial, à ajouter au premier passage |
+| SEC-INFO-02 — index sur `alerte(parcelle_id)` si un futur `GET /parcelles/{code}/alertes` est demandé | Audit sécu EX-F-07 | À déclencher avec le besoin métier |
+| SEC-INFO-03 — `@Schema` doc du champ `tauxDeclencheur` (unité pourcent, échelle 1 décimale) | Audit sécu EX-F-07 | Cohérence avec `ParcelleResponse.dernierTaux` |
+| Purge scheduled `alerte` (rétention 24 mois) + purge event_publication 7 jours | SDD §3.5 | Bloqué par **CLARIF-01** (« immuable » vs rétention 24 mois) — pas d'implémentation tant que sponsor n'a pas tranché |
+| Endpoint admin `POST /admin/events/{id}/retry` | ADR-008 | À implémenter quand un cas concret de DLQ apparaît sur staging (seuil N=5 à valider) |
+| Rejeu par lots au boot (`batch-size=50`) | SDD §3.5 correction SEC-V-06 | À implémenter avant premier déploiement en prod (rejeu synchrone actuel = risque de saturation CPU) |
 | SDD §4 exemple `dernierTaux` en number → à harmoniser en string | SEC-B-03 note résiduelle | Mineur, PR docs |
 | `SharedApiExceptionHandler.traiterViolationContrainte` message générique | SDD §4.2 attend `detail` distincts par contrainte | À faire au premier test de crash concurrent |
 
@@ -164,10 +176,9 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 
 | Ordre | PR | Contenu | Motif |
 |-------|----|---------|-------|
-| 1 | **EX-F-07** module `alertes` | Agrégat `EntreeJournal`, `@ApplicationModuleListener` sur `StatutParcelleChange`, endpoint `GET /alertes?page&size`, migration Flyway V5 `alerte`. Consomme et clôt l'event publication registry. | Débloque EX-NF-03 (rejeu au crash), rend testable §7.2 n°5 (SEC-I-07), utilise le `Pagination` VO orphelin. |
-| 2 | **EX-F-05** liste parcelles paginée | `GET /parcelles?page&size`, tri « alertes d'abord puis code », adapter Pagination sur Repository. | Débloque le parcours utilisateur de consultation, valide en runtime le VO `Pagination`. |
-| 3 | **EX-F-06** fiche parcelle + historique | `GET /parcelles/{code}` + `GET /parcelles/{code}/releves` (paginé). | Complète le parcours consultation. |
-| 4 (optionnel) | **EX-F-04** export CSV | Endpoint `GET /parcelles/export.csv`, adapter d'échappement, activation `ecotrack.features.export-csv=true`. | Ferme SEC-B-05 + SEC-01. |
+| 1 | **EX-F-05** liste parcelles paginée | `GET /parcelles?page&size`, tri « alertes d'abord puis code », adapter Pagination sur Repository. | Débloque le parcours utilisateur de consultation, valide en runtime le VO `Pagination`. |
+| 2 | **EX-F-06** fiche parcelle + historique | `GET /parcelles/{code}` + `GET /parcelles/{code}/releves` (paginé). | Complète le parcours consultation. |
+| 3 (optionnel) | **EX-F-04** export CSV | Endpoint `GET /parcelles/export.csv`, adapter d'échappement, activation `ecotrack.features.export-csv=true`. | Ferme SEC-B-05 + SEC-01. |
 
 ---
 
@@ -175,4 +186,4 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 
 - **Wave 3** stabilisée (PR #32) : rate limiting body OK, actuator restreint OK, `ddl-auto=validate` OK, RFC 7807 sans fuite OK.
 - **Audit conformité 2026-08-02** (`docs/audit-conformite-2026-08-02.md`) : aucune entorse silencieuse détectée sur les invariants critiques. Gaps identifiés sont **tous** annoncés Wave 2 dans le SDD §9 (cohérence docs/code).
-- Prochain audit `security-reviewer` à lancer **après merge d'EX-F-07** — nouvelle surface (module `alertes` + endpoint admin `POST /admin/events/{id}/retry`) et rejeu d'events → surface d'attaque à qualifier.
+- **Prochain audit `security-reviewer` à lancer sur la PR EX-F-07** avant merge : nouvelle surface `GET /alertes` (pagination bornée réutilisée du VO existant), listener `@ApplicationModuleListener` (durabilité via `event_publication` mais pas encore de rejeu par lots au boot), migration V5 (FK vers `parcelle`, index `survenu_le DESC`).
