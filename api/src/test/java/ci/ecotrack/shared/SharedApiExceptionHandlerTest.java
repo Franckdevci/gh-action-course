@@ -8,6 +8,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import static org.hamcrest.Matchers.not;
@@ -64,6 +65,27 @@ class SharedApiExceptionHandlerTest {
     }
 
     @Test
+    void should_400_neutre_when_page_non_numerique() throws Exception {
+        mvc.perform(get("/__test/pagine").param("page", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").value("Requete invalide"))
+                .andExpect(jsonPath("$.detail").value("Le parametre 'page' est invalide"))
+                .andExpect(content().string(not(containsString("NumberFormatException"))))
+                .andExpect(content().string(not(containsString("java.lang.Integer"))))
+                .andExpect(content().string(not(containsString("abc"))));
+    }
+
+    @Test
+    void should_400_neutre_when_size_deborde_int_max() throws Exception {
+        mvc.perform(get("/__test/pagine").param("size", "99999999999"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Le parametre 'size' est invalide"))
+                .andExpect(content().string(not(containsString("99999999999"))));
+    }
+
+    @Test
     void should_ne_pas_exposer_schema_when_violation_contrainte_avec_message_sql() throws Exception {
         mvc.perform(get("/__test/data-integrity-violation-avec-message-sql"))
                 .andExpect(status().isConflict())
@@ -96,6 +118,12 @@ class SharedApiExceptionHandlerTest {
         @GetMapping("/__test/exception-non-geree")
         void declencherExceptionNonGeree() {
             throw new NullPointerException("Bug interne : referenceIntrouvable au chemin /users/admin/config");
+        }
+
+        @GetMapping("/__test/pagine")
+        void pagine(@RequestParam(defaultValue = "0") int page,
+                    @RequestParam(defaultValue = "50") int size) {
+            // aucun corps : on cible la phase de conversion des @RequestParam par Spring
         }
     }
 }

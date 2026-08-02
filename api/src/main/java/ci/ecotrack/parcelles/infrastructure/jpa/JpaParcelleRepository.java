@@ -4,9 +4,13 @@ import ci.ecotrack.parcelles.application.CodeParcelleDejaUtiliseException;
 import ci.ecotrack.parcelles.application.ParcellesRepository;
 import ci.ecotrack.parcelles.domaine.CodeParcelle;
 import ci.ecotrack.parcelles.domaine.Parcelle;
+import ci.ecotrack.shared.Pagination;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,5 +47,15 @@ class JpaParcelleRepository implements ParcellesRepository {
     @Override
     public void sauvegarder(Parcelle parcelle) {
         springData.saveAndFlush(ParcelleMapper.versEntite(parcelle));
+    }
+
+    @Override
+    public PageParcelles listerAlertesPuisCode(Pagination pagination) {
+        Page<ParcelleJpaEntity> page = springData.listerAlertesPuisCode(
+                PageRequest.of(pagination.page(), pagination.size()));
+        List<Parcelle> contenu = page.getContent().stream()
+                .map(ParcelleMapper::versDomaine)
+                .toList();
+        return new PageParcelles(contenu, page.getTotalElements());
     }
 }

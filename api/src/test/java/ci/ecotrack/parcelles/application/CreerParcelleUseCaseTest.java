@@ -61,6 +61,10 @@ class CreerParcelleUseCaseTest {
             public Optional<Parcelle> trouverParId(UUID id) { return Optional.empty(); }
             @Override
             public void sauvegarder(Parcelle parcelle) { }
+            @Override
+            public PageParcelles listerAlertesPuisCode(ci.ecotrack.shared.Pagination pagination) {
+                throw new UnsupportedOperationException();
+            }
         };
         CreerParcelleUseCase useCaseEnConflit = new CreerParcelleUseCase(repositoryEnConflit, HORLOGE);
         CreerParcelleCommande commande = new CreerParcelleCommande(
@@ -102,6 +106,11 @@ class CreerParcelleUseCaseTest {
         public void sauvegarder(Parcelle parcelle) {
             parcelles.removeIf(p -> p.id().valeur().equals(parcelle.id().valeur()));
             parcelles.add(parcelle);
+        }
+
+        @Override
+        public PageParcelles listerAlertesPuisCode(ci.ecotrack.shared.Pagination pagination) {
+            throw new UnsupportedOperationException();
         }
 
         List<Parcelle> contenu() {

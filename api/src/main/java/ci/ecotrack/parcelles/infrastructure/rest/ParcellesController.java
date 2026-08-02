@@ -2,12 +2,15 @@ package ci.ecotrack.parcelles.infrastructure.rest;
 
 import ci.ecotrack.parcelles.ParcellesService;
 import ci.ecotrack.parcelles.application.CreerParcelleCommande;
+import ci.ecotrack.parcelles.application.ParcellesRepository;
 import ci.ecotrack.parcelles.domaine.CodeParcelle;
 import ci.ecotrack.parcelles.domaine.Localite;
 import ci.ecotrack.parcelles.domaine.NombrePlants;
 import ci.ecotrack.parcelles.domaine.Parcelle;
 import ci.ecotrack.parcelles.domaine.Superficie;
+import ci.ecotrack.shared.Pagination;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,9 +20,11 @@ import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -27,7 +32,8 @@ import java.net.URI;
 
 @RestController
 @RequestMapping("/api/v1/parcelles")
-@Tag(name = "Parcelles", description = "Referentiel des parcelles de reboisement (SRS EX-F-01)")
+@Tag(name = "Parcelles",
+        description = "Referentiel des parcelles de reboisement (SRS EX-F-01, EX-F-05)")
 class ParcellesController {
 
     private final ParcellesService parcellesService;
@@ -69,5 +75,38 @@ class ParcellesController {
                 .buildAndExpand(parcelle.code().valeur())
                 .toUri();
         return ResponseEntity.created(location).body(ParcelleResponse.de(parcelle));
+    }
+
+    @GetMapping
+    @Operation(
+            summary = "Lister les parcelles paginees",
+            description = """
+                    Retourne une page de parcelles triees selon la regle EX-F-05 R1 :
+                    les parcelles EN_ALERTE sont retournees en premier, puis les autres
+                    triees par code croissant.
+
+                    Bornes de pagination : page in [0, 200], size in [1, 100]. Toute valeur
+                    hors bornes retourne un 400 sans troncature silencieuse (SEC-02 / SEC-B-04).
+
+                    Une page au-dela de la derniere retourne 200 avec `contenu: []` (EX-F-05
+                    scenario "au-dela de la derniere page"). Une parcelle sans releve a
+                    `dernierTaux: null` (EX-F-05 R4).
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page des parcelles",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = PageParcellesResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Parametres de pagination hors bornes",
+                    content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    PageParcellesResponse consulter(
+            @Parameter(description = "Index de page (0-based)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Taille de page", example = "50")
+            @RequestParam(defaultValue = "50") int size) {
+        Pagination pagination = new Pagination(page, size);
+        ParcellesRepository.PageParcelles contenu = parcellesService.consulter(pagination);
+        return PageParcellesResponse.de(contenu, page, size);
     }
 }
