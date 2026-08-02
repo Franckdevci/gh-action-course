@@ -18,7 +18,8 @@ jobs:
       - uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_args: --model claude-sonnet-4-6
+          claude_args: --model claude-sonnet-4-6 --verbose
+          show_full_output: true
           prompt: |
             Fais la review de cette PR en te basant sur CLAUDE.md, docs/srs.md
             et docs/sdd.md. Vérifie dans l'ordre :
