@@ -203,4 +203,65 @@ class ParcelleTest {
         assertThat(p.statut()).isEqualTo(StatutParcelle.EN_SUIVI);
         assertThat(change).isEmpty();
     }
+
+    // ==== Tests non-negociables §7.2 (CLAUDE.md) — projection incrementale ====
+    // Le chemin reel de decision de statut est Parcelle.enregistrerDernierReleve
+    // (cf. ADR-005 : denormalisation dans la meme transaction que l'ecriture
+    // du releve). Les 4 tests suivants gardent leurs noms canoniques du SDD
+    // §7.2 et ciblent l'agregat, pas un service qui n'existe pas.
+
+    @Test
+    void should_passer_en_alerte_when_taux_est_5995_pourcent() {
+        // 1199 / 2000 = 0.5995 BigDecimal exact < 0.60 strict -> EN_ALERTE
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+
+        p.enregistrerDernierReleve(
+                TauxDeSurvie.calculer(1199, 2000),
+                LocalDate.of(2026, 7, 20));
+
+        assertThat(p.statut()).isEqualTo(StatutParcelle.EN_ALERTE);
+    }
+
+    @Test
+    void should_rester_en_suivi_when_taux_exactement_60_pourcent() {
+        // 1200 / 2000 = 0.60 exact ; seuil strictement inferieur -> EN_SUIVI
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+
+        p.enregistrerDernierReleve(
+                TauxDeSurvie.calculer(1200, 2000),
+                LocalDate.of(2026, 7, 20));
+
+        assertThat(p.statut()).isEqualTo(StatutParcelle.EN_SUIVI);
+    }
+
+    @Test
+    void should_ignorer_releve_antidate_when_determine_statut() {
+        // Dernier releve chronologique : 2026-07-20 a 80% -> EN_SUIVI
+        // Un releve antidate au 2026-06-20 avec 45% ne doit pas piloter le statut.
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+        p.enregistrerDernierReleve(
+                new TauxDeSurvie(new BigDecimal("0.8000")),
+                LocalDate.of(2026, 7, 20));
+
+        Optional<StatutChange> change = p.enregistrerDernierReleve(
+                new TauxDeSurvie(new BigDecimal("0.4500")),
+                LocalDate.of(2026, 6, 20));
+
+        assertThat(p.statut()).isEqualTo(StatutParcelle.EN_SUIVI);
+        assertThat(change).isEmpty();
+    }
+
+    @Test
+    void should_rester_en_suivi_when_aucun_releve() {
+        // Parcelle sans aucun releve : statut initial EN_SUIVI (EX-F-01 R7).
+        Parcelle p = Parcelle.creer(CODE, LOCALITE, SUPERFICIE, PLANTS,
+                LocalDate.of(2026, 6, 15), HORLOGE_FIGEE_29_JUILLET_2026);
+
+        assertThat(p.statut()).isEqualTo(StatutParcelle.EN_SUIVI);
+        assertThat(p.dernierTaux()).isNull();
+        assertThat(p.dateDernierReleve()).isNull();
+    }
 }
