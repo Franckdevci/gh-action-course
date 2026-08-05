@@ -21,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +34,7 @@ import java.net.URI;
 @RestController
 @RequestMapping("/api/v1/parcelles")
 @Tag(name = "Parcelles",
-        description = "Referentiel des parcelles de reboisement (SRS EX-F-01, EX-F-05)")
+        description = "Referentiel des parcelles de reboisement (SRS EX-F-01, EX-F-05, EX-F-06)")
 class ParcellesController {
 
     private final ParcellesService parcellesService;
@@ -108,5 +109,28 @@ class ParcellesController {
         Pagination pagination = new Pagination(page, size);
         ParcellesRepository.PageParcelles contenu = parcellesService.consulter(pagination);
         return PageParcellesResponse.de(contenu, page, size);
+    }
+
+    @GetMapping("/{code}")
+    @Operation(
+            summary = "Consulter la fiche d'une parcelle",
+            description = """
+                    Retourne les caracteristiques et le statut courant d'une parcelle.
+                    L'historique des releves est expose separement via
+                    GET /api/v1/parcelles/{code}/releves (SRS EX-F-06 R1).
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Fiche de la parcelle",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ParcelleResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Aucune parcelle avec ce code",
+                    content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    ParcelleResponse consulterFiche(
+            @Parameter(description = "Code de la parcelle (format PRC-AAAA-NNN)", example = "PRC-2026-042")
+            @PathVariable String code) {
+        Parcelle parcelle = parcellesService.consulterFiche(code);
+        return ParcelleResponse.de(parcelle);
     }
 }

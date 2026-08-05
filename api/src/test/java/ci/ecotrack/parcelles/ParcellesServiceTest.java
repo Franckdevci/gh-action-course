@@ -1,5 +1,6 @@
 package ci.ecotrack.parcelles;
 
+import ci.ecotrack.parcelles.application.ConsulterFicheParcelleUseCase;
 import ci.ecotrack.parcelles.application.ConsulterParcellesUseCase;
 import ci.ecotrack.parcelles.application.CreerParcelleUseCase;
 import ci.ecotrack.parcelles.application.MettreAJourDernierReleveUseCase;
@@ -41,8 +42,10 @@ class ParcellesServiceTest {
             new MettreAJourDernierReleveUseCase(repository);
     private final ConsulterParcellesUseCase consulterUseCase =
             new ConsulterParcellesUseCase(repository);
+    private final ConsulterFicheParcelleUseCase consulterFicheUseCase =
+            new ConsulterFicheParcelleUseCase(repository);
     private final ParcellesService service =
-            new ParcellesService(creerUseCase, majUseCase, consulterUseCase, repository);
+            new ParcellesService(creerUseCase, majUseCase, consulterUseCase, consulterFicheUseCase, repository);
 
     @Test
     void should_retourner_ParcelleReference_when_code_existe() {
