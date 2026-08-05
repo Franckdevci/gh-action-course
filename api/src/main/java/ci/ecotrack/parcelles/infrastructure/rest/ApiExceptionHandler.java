@@ -1,6 +1,7 @@
 package ci.ecotrack.parcelles.infrastructure.rest;
 
 import ci.ecotrack.parcelles.application.CodeParcelleDejaUtiliseException;
+import ci.ecotrack.parcelles.application.ParcelleReferenceIntrouvableException;
 import ci.ecotrack.parcelles.domaine.DonneeParcelleInvalideException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -50,6 +51,14 @@ class ApiExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT, e.getMessage());
         pd.setTitle("Conflit");
+        return pd;
+    }
+
+    @ExceptionHandler(ParcelleReferenceIntrouvableException.class)
+    ProblemDetail traiterIntrouvable(ParcelleReferenceIntrouvableException e) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Non trouve");
         return pd;
     }
 

@@ -3,6 +3,7 @@ package ci.ecotrack.parcelles.infrastructure.rest;
 import ci.ecotrack.parcelles.ParcellesService;
 import ci.ecotrack.parcelles.application.CodeParcelleDejaUtiliseException;
 import ci.ecotrack.parcelles.application.CreerParcelleCommande;
+import ci.ecotrack.parcelles.application.ParcelleReferenceIntrouvableException;
 import ci.ecotrack.parcelles.application.ParcellesRepository;
 import ci.ecotrack.parcelles.domaine.CodeParcelle;
 import ci.ecotrack.parcelles.domaine.Localite;
@@ -212,6 +213,33 @@ class ParcellesControllerTest {
     void should_400_when_page_negative_liste() throws Exception {
         mvc.perform(get("/api/v1/parcelles").param("page", "-1"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_200_when_fiche_parcelle_nominale() throws Exception {
+        Parcelle parcelle = uneParcelle("PRC-2026-042");
+        when(parcellesService.consulterFiche("PRC-2026-042")).thenReturn(parcelle);
+
+        mvc.perform(get("/api/v1/parcelles/PRC-2026-042"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("PRC-2026-042"))
+                .andExpect(jsonPath("$.localite").value("Bingerville"))
+                .andExpect(jsonPath("$.statut").value("EN_SUIVI"))
+                .andExpect(jsonPath("$.dernierTaux").isEmpty())
+                .andExpect(jsonPath("$.dateDernierReleve").isEmpty());
+    }
+
+    @Test
+    void should_404_when_fiche_code_inconnu() throws Exception {
+        doThrow(new ParcelleReferenceIntrouvableException(
+                "Aucune parcelle avec le code PRC-2026-999"))
+                .when(parcellesService).consulterFiche("PRC-2026-999");
+
+        mvc.perform(get("/api/v1/parcelles/PRC-2026-999"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Non trouve"))
+                .andExpect(jsonPath("$.detail").value("Aucune parcelle avec le code PRC-2026-999"));
     }
 
     @Test

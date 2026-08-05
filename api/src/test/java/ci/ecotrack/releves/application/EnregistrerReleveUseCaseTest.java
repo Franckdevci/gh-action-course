@@ -151,5 +151,10 @@ class EnregistrerReleveUseCaseTest {
         List<Releve> contenu() {
             return releves;
         }
+
+        @Override
+        public PageReleves listerParParcelleAntichronologique(UUID parcelleId, ci.ecotrack.shared.Pagination pagination) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

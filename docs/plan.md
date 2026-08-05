@@ -1,6 +1,6 @@
 # Plan projet — EcoTrack API
 
-**Dernière mise à jour** : 2026-08-02 (post EX-F-05)
+**Dernière mise à jour** : 2026-08-05 (post EX-F-06)
 **Sources de vérité** : `docs/srs.md` v1.3, `docs/sdd.md` v1.2, `docs/adr/`, `CLAUDE.md`
 
 Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conception, les ADR les décisions structurantes. Ce plan agrège leur état d'avancement, ne le remplace pas.
@@ -9,7 +9,7 @@ Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conc
 
 ## 1. Vue d'ensemble
 
-**Phase courante** : socle sécurité stabilisé (Waves 1/2/3), **EX-F-01, EX-F-02, EX-F-03, EX-F-05 et EX-F-07 livrés**. EX-NF-03 tenue en pratique (event consommé + registry `event_publication` complété). Reste EX-F-06 (fiche parcelle + historique), puis EX-F-04 (export CSV).
+**Phase courante** : socle sécurité stabilisé (Waves 1/2/3), **EX-F-01, EX-F-02, EX-F-03, EX-F-05, EX-F-06 et EX-F-07 livrés**. EX-NF-03 tenue en pratique (event consommé + registry `event_publication` complété). Reste EX-F-04 (export CSV).
 
 **Verrous en place** :
 - SRS v1.3 conforme IEEE 830 / ISO 29148, aucune ambiguïté résiduelle.
@@ -17,7 +17,7 @@ Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conc
 - Branch protection `main` : PR obligatoire, checks requis (`mvn verify (api)`, `trivy fs scan`, `SonarCloud Code Analysis`).
 - 6 règles ArchUnit maison verrouillant les invariants CLAUDE.md.
 - Auto-delete des branches actives.
-- **226 tests verts** sur la branche EX-F-05, ArchitectureTest + ArchitectureConventionsTest inclus.
+- **238 tests verts** sur la branche EX-F-06, ArchitectureTest + ArchitectureConventionsTest inclus.
 - Événement `StatutParcelleChange` émis + consommé par `AlertesService.surStatutParcelleChange` (`@ApplicationModuleListener`), durabilité assurée par Spring Modulith `event_publication` registry.
 
 ---
@@ -31,7 +31,7 @@ Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conc
 | EX-F-03 | Déterminer le statut d'alerte | ✅ Livré | #45, #48 | Projection incrémentale sur `Parcelle` (ADR-005/010), event `StatutParcelleChange` publié via `ApplicationEventPublisher`. 4 tests non-négociables §7.2 verts. |
 | EX-F-04 | Exporter en CSV | 🔒 Feature flag off | — | Bloqué SEC-B-05 (adapter CSV à écrire au moment de l'implémentation) |
 | EX-F-05 | Lister les parcelles paginées | ✅ Livré | (cette PR) | `GET /api/v1/parcelles?page&size`, tri EN_ALERTE puis code croissant via `@Query` explicite (pas d'ordre alphabétique fragile), migration V6 index `(statut, code)`, 10 tests couvrant les 5 scénarios Gherkin (parc vide, page au-delà, R4 taux null, tri, pagination). |
-| EX-F-06 | Fiche parcelle (détail + historique) | ⏳ À faire | — | Dépend de EX-F-02 (livré). Deux endpoints `GET /parcelles/{code}` + `GET /parcelles/{code}/releves` |
+| EX-F-06 | Fiche parcelle (détail + historique) | ✅ Livré | (cette PR) | `GET /parcelles/{code}` (fiche + statut projeté) + `GET /parcelles/{code}/releves?page&size` antichronologique par `dateObservation`. Réutilise index V3 `releve(parcelle_id, date_observation DESC)`. 12 tests (4 REST fiche, 4 REST historique, 4 JPA historique dont antidaté + isolation par parcelle). |
 | EX-F-07 | Journal des alertes | ✅ Livré | (cette PR) | Agrégat `EntreeJournal` immuable, `AlertesService` avec `@ApplicationModuleListener` sur `StatutParcelleChange`, endpoint `GET /alertes?page&size`, migration V5, 22 tests. Débloque EX-NF-03. |
 
 ---
@@ -40,7 +40,7 @@ Document opérationnel de suivi. Le SRS reste le contrat métier, le SDD la conc
 
 | Id | Domaine | Statut | Preuve |
 |----|---------|--------|--------|
-| EX-NF-01 | Performance P95 < 500 ms | 🟡 Partiel | Dénormalisation en place (ADR-005), index `releve(parcelle_id, date_observation DESC)` + `parcelle(statut, code)` (V6, EX-F-05). Test de charge k6 non écrit. Testable dès EX-F-06 livré. |
+| EX-NF-01 | Performance P95 < 500 ms | 🟡 Partiel | Dénormalisation en place (ADR-005), index `releve(parcelle_id, date_observation DESC)` + `parcelle(statut, code)` (V6, EX-F-05). EX-F-06 livré → parcours consultation complet, testable en k6. Test de charge non écrit. |
 | EX-NF-02 | Zéro coupure (expand/contract) | 🟡 Partiel | Migrations V1-V4 additives ; sondes readiness/liveness activées (Wave 3). Test rolling update non écrit. |
 | EX-NF-03 | Aucune perte d'alerte | ✅ Livré | Event émis dans la transaction (PR #45), consommé par `AlertesService.surStatutParcelleChange` (`@ApplicationModuleListener` → `@Async` + `@Transactional(REQUIRES_NEW)`). Registry `event_publication` complété à chaque bascule, vérifié par `JournalisationEndToEndTest`. |
 | EX-NF-04 | Version exposée | 🟡 Partiel | `/actuator/info` avec `management.info.build.enabled=true`. Header web à ajouter avec front. |
@@ -114,7 +114,8 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 | #47 | chore check-in slash commands `.claude/commands/*.md` | 2026-08-02 |
 | #48 | refactor statut projeté incrémentalement (ADR-010) | 2026-08-02 |
 | #50 | **EX-F-07** module `alertes` + 3 correctifs sécu ÉLEVÉS | 2026-08-02 |
-| (cette PR) | **EX-F-05** liste parcelles paginée : `GET /parcelles`, tri `EN_ALERTE` first via `@Query`, migration V6 index | — |
+| #51 | **EX-F-05** liste parcelles paginée + fix SEC-FAIB-02 | 2026-08-02 |
+| (cette PR) | **EX-F-06** fiche parcelle + historique antichronologique paginé | — |
 
 ---
 
@@ -122,7 +123,7 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 
 | PR | Sujet | Statut |
 |----|-------|--------|
-| (à ouvrir) | **EX-F-05** liste parcelles paginée + migration V6 index `(statut, code)` | En review |
+| (à ouvrir) | **EX-F-06** fiche parcelle + historique paginé antichronologique | En review |
 
 ---
 
@@ -154,7 +155,7 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 | Test smoke `/actuator/{env,beans,mappings,heapdump}` → 404 | Wave 3 §9.3 | Ajouter avec EX-F-07 (`@SpringBootTest` complet) |
 | Validation regex W3C `traceparent` | SEC-I-04, Wave 3 §9.3 | Reporté à la PR Micrometer Tracing (ADR-009) |
 | `@Pattern` sur `@PathVariable code` | Audit PR #29 SEC-FAIB-01 | Trivial, à faire au premier passage sur `RelevesController` |
-| Historique relevés paginé (EX-F-06) | Anti-pattern SEC-B-03 (revue v2 §V-06) | À couvrir dans EX-F-06 avec keyset pagination |
+| Historique relevés — passage en keyset pagination | Anti-pattern SEC-B-03 (revue v2 §V-06) — EX-F-06 livré avec offset paginé standard, borné à `size ≤ 100` | À basculer en keyset (`?before=<dateObservation>`) au premier signal de volumétrie ou à la prochaine passe sécu |
 | Endpoint `POST /admin/events/{id}/retry` | ADR-008 | À implémenter avec EX-F-07 (flag `ecotrack.admin.enabled` déjà en place) |
 | Publications non traitées dans `event_publication` | EX-F-03 livré sans consommateur | ✅ Résolu par EX-F-07 (listener en place, publications complétées à chaque bascule) |
 | Log INFO au boot rappelant `retention.journal-alertes-mois` | SDD §3.5 | Mineur, à ajouter avec le job de purge (bloqué par CLARIF-01) |
@@ -177,8 +178,8 @@ Légende : ✅ complet / 🟡 partiel / ⏳ à faire / 🔒 bloqué
 
 | Ordre | PR | Contenu | Motif |
 |-------|----|---------|-------|
-| 1 | **EX-F-06** fiche parcelle + historique | `GET /parcelles/{code}` + `GET /parcelles/{code}/releves` (paginé). | Complète le parcours consultation, rend EX-NF-01 testable en k6. |
-| 2 (optionnel) | **EX-F-04** export CSV | Endpoint `GET /parcelles/export.csv`, adapter d'échappement, activation `ecotrack.features.export-csv=true`. | Ferme SEC-B-05 + SEC-01. |
+| 1 | **EX-F-04** export CSV | Endpoint `GET /parcelles/export.csv`, adapter d'échappement, activation `ecotrack.features.export-csv=true`. | Ferme SEC-B-05 + SEC-01, dernière exigence fonctionnelle v1. |
+| 2 | **k6 sur `/parcelles` + `/parcelles/{code}/releves`** | Preuve chiffrée EX-NF-01 P95 < 500 ms sur les 2 endpoints de consultation. | Débloqué par EX-F-06 livré. |
 | 3 (dette hors sécu) | **Regex `PRC-\d{4}-\d{1,3}` extraite en `shared.CodeParcelleFormat`** | Aujourd'hui dupliquée 3× (`CodeParcelle`, `EntreeJournal`, `CreerParcelleRequest`) — risque divergence future | Priorité HAUTE mais coût court, à faire au prochain passage sur les validations |
 
 ---

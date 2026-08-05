@@ -1,5 +1,6 @@
 package ci.ecotrack.releves;
 
+import ci.ecotrack.releves.application.ConsulterHistoriqueUseCase;
 import ci.ecotrack.releves.application.EnregistrerReleveCommande;
 import ci.ecotrack.releves.application.EnregistrerReleveUseCase;
 import ci.ecotrack.releves.domaine.DateObservation;
@@ -22,7 +23,8 @@ import static org.mockito.Mockito.when;
 class RelevesServiceTest {
 
     private final EnregistrerReleveUseCase useCase = mock(EnregistrerReleveUseCase.class);
-    private final RelevesService service = new RelevesService(useCase);
+    private final ConsulterHistoriqueUseCase historiqueUseCase = mock(ConsulterHistoriqueUseCase.class);
+    private final RelevesService service = new RelevesService(useCase, historiqueUseCase);
 
     @Test
     void should_deleguer_enregistrement_au_use_case() {

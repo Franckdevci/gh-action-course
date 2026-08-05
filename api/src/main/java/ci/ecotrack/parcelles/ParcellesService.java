@@ -1,5 +1,6 @@
 package ci.ecotrack.parcelles;
 
+import ci.ecotrack.parcelles.application.ConsulterFicheParcelleUseCase;
 import ci.ecotrack.parcelles.application.ConsulterParcellesUseCase;
 import ci.ecotrack.parcelles.application.CreerParcelleCommande;
 import ci.ecotrack.parcelles.application.CreerParcelleUseCase;
@@ -23,15 +24,18 @@ public class ParcellesService {
     private final CreerParcelleUseCase creerParcelleUseCase;
     private final MettreAJourDernierReleveUseCase mettreAJourDernierReleveUseCase;
     private final ConsulterParcellesUseCase consulterParcellesUseCase;
+    private final ConsulterFicheParcelleUseCase consulterFicheParcelleUseCase;
     private final ParcellesRepository parcellesRepository;
 
     public ParcellesService(CreerParcelleUseCase creerParcelleUseCase,
                             MettreAJourDernierReleveUseCase mettreAJourDernierReleveUseCase,
                             ConsulterParcellesUseCase consulterParcellesUseCase,
+                            ConsulterFicheParcelleUseCase consulterFicheParcelleUseCase,
                             ParcellesRepository parcellesRepository) {
         this.creerParcelleUseCase = creerParcelleUseCase;
         this.mettreAJourDernierReleveUseCase = mettreAJourDernierReleveUseCase;
         this.consulterParcellesUseCase = consulterParcellesUseCase;
+        this.consulterFicheParcelleUseCase = consulterFicheParcelleUseCase;
         this.parcellesRepository = parcellesRepository;
     }
 
@@ -59,5 +63,10 @@ public class ParcellesService {
     @Transactional(readOnly = true)
     public ParcellesRepository.PageParcelles consulter(Pagination pagination) {
         return consulterParcellesUseCase.executer(pagination);
+    }
+
+    @Transactional(readOnly = true)
+    public Parcelle consulterFiche(String code) {
+        return consulterFicheParcelleUseCase.executer(new CodeParcelle(code));
     }
 }
